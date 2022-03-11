@@ -1,0 +1,9 @@
+[package]
+name = "kilo-rs"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+
+[dependencies]
+termion = "1.5.6"
