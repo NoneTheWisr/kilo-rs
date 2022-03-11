@@ -34,6 +34,11 @@ impl Kilo {
             }
 
             let key = key;
+            match key {
+                Some(key) => print!("{:?}\r\n", key),
+                None => print!("None\r\n"),
+            }
+
             if matches!(
                 key,
                 Some(KeyEvent {
@@ -42,11 +47,6 @@ impl Kilo {
                 })
             ) {
                 break;
-            }
-            
-            match key {
-                Some(key) => print!("{:?}\r\n", key),
-                None => print!("None\r\n"),
             }
         }
 
