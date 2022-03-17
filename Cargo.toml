@@ -6,4 +6,5 @@ edition = "2021"
 [features]
 
 [dependencies]
+popol = "0.5.0"
 termion = "1.5.6"
