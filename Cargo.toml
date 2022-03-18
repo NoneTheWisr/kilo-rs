@@ -6,4 +6,5 @@ edition = "2021"
 [features]
 
 [dependencies]
+anyhow = "1.0.56"
 crossterm = "0.23.0"

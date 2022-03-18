@@ -1,20 +1,7 @@
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::{event, terminal};
 use std::time::Duration;
-
-type Result<T> = core::result::Result<T, Error>;
-
-#[derive(Debug)]
-enum Error {
-    CrosstermError(crossterm::ErrorKind),
-    KiloError(String),
-}
-
-impl From<crossterm::ErrorKind> for Error {
-    fn from(error_kind: crossterm::ErrorKind) -> Self {
-        Self::CrosstermError(error_kind)
-    }
-}
+use anyhow::Result;
 
 struct Kilo;
 
