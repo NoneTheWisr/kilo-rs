@@ -3,15 +3,31 @@ use crossterm::{event, terminal};
 use std::time::Duration;
 use anyhow::Result;
 
-struct Kilo;
+pub struct RawModeOverride;
+
+impl RawModeOverride {
+    pub fn new() -> Result<Self> {
+        terminal::enable_raw_mode()?;
+        Ok(Self)
+    }
+}
+
+impl Drop for RawModeOverride {
+    fn drop(&mut self) {
+        terminal::disable_raw_mode().unwrap();
+    }
+}
+
+pub struct Kilo;
 
 impl Kilo {
-    fn new() -> Self {
-        terminal::enable_raw_mode().unwrap();
+    pub fn new() -> Self {
         Self
     }
 
-    fn run(&mut self) -> Result<()> {
+    pub fn run(&mut self) -> Result<()> {
+        let _override = RawModeOverride::new()?;
+
         loop {
             let mut key = None;
             if event::poll(Duration::from_millis(100))? {
@@ -38,12 +54,6 @@ impl Kilo {
         }
 
         Ok(())
-    }
-}
-
-impl Drop for Kilo {
-    fn drop(&mut self) {
-        terminal::disable_raw_mode().unwrap();
     }
 }
 
