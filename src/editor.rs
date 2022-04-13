@@ -8,26 +8,41 @@ use anyhow::Result;
 
 pub struct Editor {
     buffer: Buffer,
-    view: ViewGeometry,
     rendered_buffer: RenderedBuffer,
     cursor: Location,
+    view: ViewGeometry,
 }
 
 impl Editor {
     pub fn new(width: usize, height: usize) -> Self {
+        let buffer = Buffer::new();
+        let rendered_buffer = RenderedBuffer::from(&buffer);
+
         Self {
-            buffer: Buffer::empty(),
-            view: ViewGeometry::new(0, 0, width, height),
-            rendered_buffer: RenderedBuffer::empty(),
+            buffer,
+            rendered_buffer,
             cursor: Location::new(0, 0),
+            view: ViewGeometry::new(0, 0, width, height),
         }
     }
 
-    pub fn get_view_relative_cursor_position(&self) -> Location {
+    pub fn get_view_cursor(&self) -> Location {
         Location::new(
             self.cursor.row - self.view.row,
             self.cursor.col - self.view.col,
         )
+    }
+
+    pub fn get_buffer_cursor(&self) -> Location {
+        self.cursor
+    }
+
+    pub fn get_buffer_line_count(&self) -> usize {
+        self.rendered_buffer.row_count()
+    }
+
+    pub fn get_view_width(&self) -> usize {
+        self.view.width
     }
 
     pub fn get_view_contents(&self) -> impl Iterator<Item = String> {
@@ -39,15 +54,19 @@ impl Editor {
         } = self.view;
         let filler = once("~").chain(repeat(" ")).take(width).collect();
         self.rendered_buffer
-            .rect(row, col, width, height)
+            .get_view(row, col, width, height)
             .into_iter()
             .chain(repeat(filler))
             .take(height)
     }
 
+    pub fn get_file_name(&self) -> Option<&String> {
+        self.buffer.file_path()
+    }
+
     pub fn open_file(&mut self, file_path: &str) -> Result<()> {
         self.buffer = Buffer::from_file(file_path)?;
-        self.rendered_buffer = RenderedBuffer::render(&self.buffer);
+        self.rendered_buffer = RenderedBuffer::from(&self.buffer);
         self.cursor = Location::new(0, 0);
 
         Ok(())
@@ -86,7 +105,7 @@ impl Editor {
 
     pub fn move_cursor_to_buffer_bottom(&mut self) {
         self.move_view_to_buffer_bottom();
-        self.cursor.row = self.rendered_buffer.last_line();
+        self.cursor.row = self.rendered_buffer.last_row();
     }
 
     fn move_view_to_buffer_top(&mut self) {
@@ -101,7 +120,7 @@ impl Editor {
         // TODO! See if the interaction between the rendered buffer and the view
         // can be expressed in a better way.
         self.rendered_buffer
-            .line_count()
+            .row_count()
             .saturating_sub(self.view.height)
     }
 
@@ -211,7 +230,7 @@ impl Editor {
     }
 
     fn is_cursor_at_buffer_bottom(&self) -> bool {
-        self.cursor.row == self.rendered_buffer.last_line()
+        self.cursor.row == self.rendered_buffer.last_row()
     }
 
     fn is_cursor_at_line_start(&self) -> bool {

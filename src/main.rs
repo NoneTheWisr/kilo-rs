@@ -1,10 +1,9 @@
-use std::{iter, env};
-use std::io::{BufRead, self, BufReader, BufWriter, Stdout, Write};
-use std::fs::File;
+use std::env;
+use std::io::{self, BufWriter, Stdout, Write};
 
 use anyhow::Result;
 
-use crossterm::style::Print;
+use crossterm::style::{Print, PrintStyledContent, Stylize};
 use crossterm::event::{KeyEvent, Event, self};
 use crossterm::terminal::{self, Clear, ClearType::{All, UntilNewLine}};
 use crossterm::queue;
@@ -56,9 +55,9 @@ impl Kilo {
         queue!(self.stdout, MoveTo(0, 0))?;
 
         self.render_rows()?;
-        // self.render_status_bar()?;
+        self.render_status_bar()?;
 
-        let Location { row, col } = self.editor.get_view_relative_cursor_position();
+        let Location { row, col } = self.editor.get_view_cursor();
         queue!(self.stdout, Show)?;
         queue!(self.stdout, MoveTo(col as u16, row as u16))?;
 
@@ -67,13 +66,34 @@ impl Kilo {
     }
     
     fn render_rows(&mut self) -> Result<()>  {
-        for line in self.editor.get_view_contents() {
-            queue!(self.stdout, Print(line))?;
+        for row in self.editor.get_view_contents() {
+            queue!(self.stdout, Print(row))?;
             queue!(self.stdout, Clear(UntilNewLine))?;
             queue!(self.stdout, Print("\r\n"))?;
         }
         Ok(())
-    }    
+    }
+    
+    fn render_status_bar(&mut self) -> Result<()> {
+        let file_name = match self.editor.get_file_name() {
+            Some(name) => name,
+            None => "[Scratch]",
+        };
+
+        let left_part = format!("{:.20}", file_name);
+        let right_part = format!("{}/{}", self.editor.get_buffer_cursor().row + 1, self.editor.get_buffer_line_count());
+        let total_len = left_part.len() + right_part.len();
+
+        let view_width = self.editor.get_view_width();
+        let status_bar = if total_len <= view_width {
+            left_part + &" ".repeat(view_width - total_len) + &right_part
+        } else {
+            format!("{left_part:0$.0$}", view_width)
+        };
+
+        queue!(self.stdout, PrintStyledContent(status_bar.negative()))?;
+        Ok(())
+    }
 
     #[rustfmt::skip]
     fn process_input(&mut self) -> Result<()> {

@@ -5,48 +5,46 @@ use crate::core::Buffer;
 const TAB_STOP: usize = 8;
 
 pub struct RenderedBuffer {
-    lines: Vec<String>,
+    rows: Vec<String>,
+}
+
+impl From<&Buffer> for RenderedBuffer {
+    fn from(buffer: &Buffer) -> Self {
+        let rows = buffer.rows().map(|row| render_row(row)).collect();
+        Self { rows }
+    }
 }
 
 impl RenderedBuffer {
-    pub fn empty() -> Self {
-        Self { lines: Vec::new() }
-    }
-
-    pub fn render(buffer: &Buffer) -> Self {
-        let lines = buffer.lines().map(|line| render_string(line)).collect();
-        Self { lines }
-    }
-
-    pub fn rect(&self, row: usize, col: usize, width: usize, height: usize) -> Vec<String> {
-        self.lines
+    pub fn get_view(&self, row: usize, col: usize, width: usize, height: usize) -> Vec<String> {
+        self.rows
             .iter()
             .skip(row)
             .take(height)
-            .map(|line| line.chars().skip(col).take(width).collect())
+            .map(|row| row.chars().skip(col).take(width).collect())
             .collect()
     }
 
-    pub fn eol_col(&self, line_number: usize) -> usize {
-        self.lines[line_number].len()
+    pub fn eol_col(&self, row: usize) -> usize {
+        self.rows[row].len()
     }
 
-    pub fn last_col(&self, line_number: usize) -> usize {
-        self.eol_col(line_number).saturating_sub(1)
+    pub fn last_col(&self, row: usize) -> usize {
+        self.eol_col(row).saturating_sub(1)
     }
 
-    pub fn line_count(&self) -> usize {
-        self.lines.len()
+    pub fn row_count(&self) -> usize {
+        self.rows.len()
     }
 
-    pub fn last_line(&self) -> usize {
-        self.line_count().saturating_sub(1)
+    pub fn last_row(&self) -> usize {
+        self.row_count().saturating_sub(1)
     }
 }
 
-fn render_string(raw: &str) -> String {
+fn render_row(row: &str) -> String {
     let mut rendered = String::new();
-    for c in raw.chars() {
+    for c in row.chars() {
         if c == '\t' {
             let count = TAB_STOP - (rendered.len() % TAB_STOP);
             rendered.extend(iter::repeat(' ').take(count));
