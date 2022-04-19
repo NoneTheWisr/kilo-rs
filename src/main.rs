@@ -117,6 +117,12 @@ impl Kilo {
                 (KM::CONTROL, PageDown) => self.editor.move_cursor_to_buffer_bottom(),
 
                 (KM::CONTROL, Char('q')) => self.terminate()?,
+                
+                (KM::NONE, Backspace) => self.editor.remove_char_behind(),
+                (KM::NONE, Delete) => self.editor.remove_char_in_front(),
+                
+                (KM::NONE, Char(c)) => self.editor.insert_char(c),
+                (KM::NONE, Enter) => self.editor.insert_row(),
 
                 _ => {},
             }

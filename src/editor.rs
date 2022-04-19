@@ -72,6 +72,68 @@ impl Editor {
         Ok(())
     }
 
+    pub fn save_file(&mut self) -> Result<()> {
+        self.buffer.save()
+    }
+
+    pub fn save_file_as(&mut self, file_path: &str) -> Result<()> {
+        self.buffer.save_as(file_path)
+    }
+
+    pub fn remove_char_in_front(&mut self) {
+        if self.is_cursor_at_eol_col() {
+            if !self.is_cursor_at_buffer_bottom() {
+                self.buffer.join_two_lines(self.cursor.row);
+            }
+        } else {
+            self.buffer.remove_char(self.cursor)
+        }
+
+        // TODO! Don't rerender the whole buffer.
+        self.rendered_buffer = From::from(&self.buffer);
+    }
+
+    pub fn remove_char_behind(&mut self) {
+        if self.is_cursor_at_line_start() {
+            if !self.is_cursor_at_buffer_top() {
+                if self.is_cursor_at_view_top() {
+                    self.move_view_up_unchecked()
+                }
+
+                self.cursor.row -= 1;
+                self.cursor.col = self.rendered_buffer.eol_col(self.cursor.row);
+
+                self.buffer.join_two_lines(self.cursor.row);
+            }
+        } else {
+            self.move_cursor_left_unchecked();
+            self.buffer.remove_char(self.cursor);
+        }
+
+        // TODO! Don't rerender the whole buffer.
+        self.rendered_buffer = From::from(&self.buffer);
+    }
+
+    pub fn insert_char(&mut self, c: char) {
+        self.buffer.insert_char(self.cursor, c);
+        self.move_cursor_right_unchecked();
+
+        // TODO! Don't rerender the whole buffer.
+        self.rendered_buffer = From::from(&self.buffer);
+    }
+
+    fn move_cursor_left_unchecked(&mut self) {
+        self.cursor.col -= 1
+    }
+
+    fn move_cursor_right_unchecked(&mut self) {
+        self.cursor.col += 1
+    }
+
+    fn move_cursor_down_unchecked(&mut self) {
+        self.cursor.row += 1
+    }
+
     pub fn move_cursor_up(&mut self) {
         if self.is_cursor_at_buffer_top() {
             return;
@@ -83,6 +145,23 @@ impl Editor {
 
         self.cursor.row -= 1;
         self.adjust_cursor_past_eol();
+    }
+
+    pub fn insert_row(&mut self) {
+        if self.is_cursor_at_line_start() {
+            self.buffer.insert_row(self.cursor.row);
+            self.move_cursor_down_unchecked();
+        } else if self.is_cursor_at_eol_col() {
+            self.buffer.insert_row(self.cursor.row + 1);
+            self.move_cursor_down_unchecked();
+        } else {
+            self.buffer.split_line(self.cursor);
+            self.move_cursor_down_unchecked();
+            self.move_cursor_to_line_start();
+        }
+
+        // TODO! Don't rerender the whole buffer.
+        self.rendered_buffer = From::from(&self.buffer);
     }
 
     pub fn move_cursor_down(&mut self) {
@@ -154,7 +233,7 @@ impl Editor {
                 self.move_view_left_unchecked();
             }
 
-            self.cursor.col -= 1;
+            self.move_cursor_left_unchecked();
         }
     }
 
@@ -171,7 +250,7 @@ impl Editor {
                 self.move_view_right_unchecked();
             }
 
-            self.cursor.col += 1;
+            self.move_cursor_right_unchecked();
         }
     }
 
