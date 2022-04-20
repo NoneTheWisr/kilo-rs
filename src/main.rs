@@ -54,20 +54,20 @@ impl Kilo {
         queue!(self.stdout, Hide)?;
         queue!(self.stdout, MoveTo(0, 0))?;
 
-        self.render_rows()?;
+        self.render_lines()?;
         self.render_status_bar()?;
 
-        let Location { row, col } = self.editor.get_view_cursor();
+        let Location { line, col } = self.editor.get_view_cursor();
         queue!(self.stdout, Show)?;
-        queue!(self.stdout, MoveTo(col as u16, row as u16))?;
+        queue!(self.stdout, MoveTo(col as u16, line as u16))?;
 
         self.stdout.flush()?;
         Ok(())
     }
     
-    fn render_rows(&mut self) -> Result<()>  {
-        for row in self.editor.get_view_contents() {
-            queue!(self.stdout, Print(row))?;
+    fn render_lines(&mut self) -> Result<()>  {
+        for line in self.editor.get_view_contents() {
+            queue!(self.stdout, Print(line))?;
             queue!(self.stdout, Clear(UntilNewLine))?;
             queue!(self.stdout, Print("\r\n"))?;
         }
@@ -81,7 +81,7 @@ impl Kilo {
         };
 
         let left_part = format!("{:.20}", file_name);
-        let right_part = format!("{}/{}", self.editor.get_buffer_cursor().row + 1, self.editor.get_buffer_line_count());
+        let right_part = format!("{}/{}", self.editor.get_buffer_cursor().line + 1, self.editor.get_buffer_line_count());
         let total_len = left_part.len() + right_part.len();
 
         let view_width = self.editor.get_view_width();
@@ -122,7 +122,7 @@ impl Kilo {
                 (KM::NONE, Delete) => self.editor.remove_char_in_front(),
                 
                 (KM::NONE, Char(c)) => self.editor.insert_char(c),
-                (KM::NONE, Enter) => self.editor.insert_row(),
+                (KM::NONE, Enter) => self.editor.insert_line(),
 
                 _ => {},
             }

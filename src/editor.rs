@@ -28,7 +28,7 @@ impl Editor {
 
     pub fn get_view_cursor(&self) -> Location {
         Location::new(
-            self.cursor.row - self.view.row,
+            self.cursor.line - self.view.line,
             self.cursor.col - self.view.col,
         )
     }
@@ -38,7 +38,7 @@ impl Editor {
     }
 
     pub fn get_buffer_line_count(&self) -> usize {
-        self.rendered_buffer.row_count()
+        self.rendered_buffer.line_count()
     }
 
     pub fn get_view_width(&self) -> usize {
@@ -47,14 +47,14 @@ impl Editor {
 
     pub fn get_view_contents(&self) -> impl Iterator<Item = String> {
         let ViewGeometry {
-            row,
+            line,
             col,
             width,
             height,
         } = self.view;
         let filler = once("~").chain(repeat(" ")).take(width).collect();
         self.rendered_buffer
-            .get_view(row, col, width, height)
+            .get_view(line, col, width, height)
             .into_iter()
             .chain(repeat(filler))
             .take(height)
@@ -83,7 +83,7 @@ impl Editor {
     pub fn remove_char_in_front(&mut self) {
         if self.is_cursor_at_eol_col() {
             if !self.is_cursor_at_buffer_bottom() {
-                self.buffer.join_two_lines(self.cursor.row);
+                self.buffer.join_two_lines(self.cursor.line);
             }
         } else {
             self.buffer.remove_char(self.cursor)
@@ -100,10 +100,10 @@ impl Editor {
                     self.move_view_up_unchecked()
                 }
 
-                self.cursor.row -= 1;
-                self.cursor.col = self.rendered_buffer.eol_col(self.cursor.row);
+                self.cursor.line -= 1;
+                self.cursor.col = self.rendered_buffer.eol_col(self.cursor.line);
 
-                self.buffer.join_two_lines(self.cursor.row);
+                self.buffer.join_two_lines(self.cursor.line);
             }
         } else {
             self.move_cursor_left_unchecked();
@@ -131,7 +131,7 @@ impl Editor {
     }
 
     fn move_cursor_down_unchecked(&mut self) {
-        self.cursor.row += 1
+        self.cursor.line += 1
     }
 
     pub fn move_cursor_up(&mut self) {
@@ -143,16 +143,16 @@ impl Editor {
             self.move_view_up_unchecked();
         }
 
-        self.cursor.row -= 1;
+        self.cursor.line -= 1;
         self.adjust_cursor_past_eol();
     }
 
-    pub fn insert_row(&mut self) {
+    pub fn insert_line(&mut self) {
         if self.is_cursor_at_line_start() {
-            self.buffer.insert_row(self.cursor.row);
+            self.buffer.insert_line(self.cursor.line);
             self.move_cursor_down_unchecked();
         } else if self.is_cursor_at_eol_col() {
-            self.buffer.insert_row(self.cursor.row + 1);
+            self.buffer.insert_line(self.cursor.line + 1);
             self.move_cursor_down_unchecked();
         } else {
             self.buffer.split_line(self.cursor);
@@ -173,50 +173,50 @@ impl Editor {
             self.move_view_down_unchecked();
         }
 
-        self.cursor.row += 1;
+        self.cursor.line += 1;
         self.adjust_cursor_past_eol();
     }
 
     pub fn move_cursor_to_buffer_top(&mut self) {
         self.move_view_to_buffer_top();
-        self.cursor.row = 0;
+        self.cursor.line = 0;
     }
 
     pub fn move_cursor_to_buffer_bottom(&mut self) {
         self.move_view_to_buffer_bottom();
-        self.cursor.row = self.rendered_buffer.last_row();
+        self.cursor.line = self.rendered_buffer.last_line();
     }
 
     fn move_view_to_buffer_top(&mut self) {
-        self.view.row = 0;
+        self.view.line = 0;
     }
 
     fn move_view_to_buffer_bottom(&mut self) {
-        self.view.row = self.bottom_most_view_pos()
+        self.view.line = self.bottom_most_view_pos()
     }
 
     fn bottom_most_view_pos(&self) -> usize {
         // TODO! See if the interaction between the rendered buffer and the view
         // can be expressed in a better way.
         self.rendered_buffer
-            .row_count()
+            .line_count()
             .saturating_sub(self.view.height)
     }
 
     pub fn move_one_view_up(&mut self) {
-        let cursor_row_offset = self.cursor.row - self.view.row;
-        self.view.row = self.view.row.saturating_sub(self.view.height);
-        self.cursor.row = self.view.row + cursor_row_offset;
+        let cursor_line_offset = self.cursor.line - self.view.line;
+        self.view.line = self.view.line.saturating_sub(self.view.height);
+        self.cursor.line = self.view.line + cursor_line_offset;
         self.adjust_cursor_past_eol();
     }
 
     pub fn move_one_view_down(&mut self) {
-        let cursor_row_offset = self.cursor.row - self.view.row;
-        self.view.row = cmp::min(
-            self.view.row + self.view.height,
+        let cursor_line_offset = self.cursor.line - self.view.line;
+        self.view.line = cmp::min(
+            self.view.line + self.view.height,
             self.bottom_most_view_pos(),
         );
-        self.cursor.row = self.view.row + cursor_row_offset;
+        self.cursor.line = self.view.line + cursor_line_offset;
         self.adjust_cursor_past_eol();
     }
 
@@ -259,11 +259,11 @@ impl Editor {
     }
 
     pub fn move_cursor_to_line_end(&mut self) {
-        self.cursor.col = self.rendered_buffer.last_col(self.cursor.row);
+        self.cursor.col = self.rendered_buffer.last_col(self.cursor.line);
     }
 
     fn move_cursor_to_eol_col(&mut self) {
-        self.cursor.col = self.rendered_buffer.eol_col(self.cursor.row);
+        self.cursor.col = self.rendered_buffer.eol_col(self.cursor.line);
     }
 
     fn adjust_cursor_past_eol(&mut self) {
@@ -273,11 +273,11 @@ impl Editor {
     }
 
     fn move_view_up_unchecked(&mut self) {
-        self.view.row -= 1;
+        self.view.line -= 1;
     }
 
     fn move_view_down_unchecked(&mut self) {
-        self.view.row += 1;
+        self.view.line += 1;
     }
 
     fn move_view_left_unchecked(&mut self) {
@@ -289,11 +289,11 @@ impl Editor {
     }
 
     fn is_cursor_at_view_top(&self) -> bool {
-        self.cursor.row == self.view.row
+        self.cursor.line == self.view.line
     }
 
     fn is_cursor_at_view_bottom(&self) -> bool {
-        self.cursor.row == self.view.last_row()
+        self.cursor.line == self.view.last_line()
     }
 
     fn is_cursor_at_view_left(&self) -> bool {
@@ -305,11 +305,11 @@ impl Editor {
     }
 
     fn is_cursor_at_buffer_top(&self) -> bool {
-        self.cursor.row == 0
+        self.cursor.line == 0
     }
 
     fn is_cursor_at_buffer_bottom(&self) -> bool {
-        self.cursor.row == self.rendered_buffer.last_row()
+        self.cursor.line == self.rendered_buffer.last_line()
     }
 
     fn is_cursor_at_line_start(&self) -> bool {
@@ -317,10 +317,10 @@ impl Editor {
     }
 
     fn is_cursor_at_eol_col(&self) -> bool {
-        self.cursor.col == self.rendered_buffer.eol_col(self.cursor.row)
+        self.cursor.col == self.rendered_buffer.eol_col(self.cursor.line)
     }
 
     fn is_cursor_past_eol(&self) -> bool {
-        self.cursor.col > self.rendered_buffer.eol_col(self.cursor.row)
+        self.cursor.col > self.rendered_buffer.eol_col(self.cursor.line)
     }
 }
