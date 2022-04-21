@@ -17,6 +17,19 @@ impl From<&Buffer> for RenderedBuffer {
 }
 
 impl RenderedBuffer {
+    pub fn update_line(&mut self, line_number: usize, buffer: &Buffer) {
+        self.lines[line_number] = render_line(buffer.get_line(line_number));
+    }
+
+    pub fn insert_line(&mut self, line_number: usize, buffer: &Buffer) {
+        self.lines
+            .insert(line_number, render_line(buffer.get_line(line_number)));
+    }
+
+    pub fn remove_line(&mut self, line_number: usize) {
+        self.lines.remove(line_number);
+    }
+
     pub fn get_view(&self, line: usize, col: usize, width: usize, height: usize) -> Vec<String> {
         self.lines
             .iter()

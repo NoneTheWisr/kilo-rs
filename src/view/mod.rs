@@ -1,7 +1,12 @@
 pub mod rendering;
 
-// TODO! Explore different visibility options. See in a more uniform interface
-// is possible.
+// I think keeping this as close to POD as possible is fine. If I want to create
+// a better interface, I'd have to introduce a lot of methods like
+// * move -> left / right, up / down
+// * move_to -> place
+// * set -> specific coord / dimension
+// I'm choosing to keep it transparent, just grouping some variables together.
+// Kind of like an implementation detail and not a part of some API.
 pub struct ViewGeometry {
     pub line: usize,
     pub col: usize,

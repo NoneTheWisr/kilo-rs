@@ -66,6 +66,10 @@ impl Buffer {
         self.lines.iter()
     }
 
+    pub fn get_line(&self, line_number: usize) -> &String {
+        &self.lines[line_number]
+    }
+
     pub fn insert_char(&mut self, location: Location, c: char) {
         self.lines[location.line].insert(location.col, c);
     }
