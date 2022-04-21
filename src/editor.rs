@@ -166,6 +166,7 @@ impl Editor {
             self.buffer.insert_line(insert_index);
             self.rendered_buffer.insert_line(insert_index, &self.buffer);
             self.move_cursor_down_unchecked();
+            self.move_cursor_to_line_start();
         } else {
             self.buffer.split_line(self.cursor);
             self.rendered_buffer
