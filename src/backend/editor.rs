@@ -1,8 +1,8 @@
 use std::cmp;
 use std::iter::{once, repeat};
 
-use crate::core::{Buffer, Location};
-use crate::view::{rendering::RenderedBuffer, ViewGeometry};
+use crate::backend::core::{Buffer, Location};
+use crate::backend::view::{rendering::RenderedBuffer, ViewGeometry};
 
 use anyhow::Result;
 

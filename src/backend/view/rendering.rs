@@ -1,6 +1,6 @@
 use std::iter;
 
-use crate::core::Buffer;
+use crate::backend::core::Buffer;
 
 const TAB_STOP: usize = 8;
 

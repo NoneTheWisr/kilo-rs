@@ -9,7 +9,7 @@ use crossterm::terminal::{self, Clear, ClearType::{All, UntilNewLine}};
 use crossterm::queue;
 use crossterm::cursor::{Hide, MoveTo, Show};
 
-use kilo_rs::{terminal::RawModeOverride, editor::Editor, core::Location};
+use kilo_rs::backend::{core::Location, terminal::RawModeOverride, editor::Editor};
 
 struct Kilo {
     editor: Editor,
