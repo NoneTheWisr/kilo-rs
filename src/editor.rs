@@ -1,8 +1,8 @@
 use std::cmp;
 use std::iter::{once, repeat};
 
-use crate::backend::core::{Buffer, Location};
-use crate::backend::view::{rendering::RenderedBuffer, ViewGeometry};
+use crate::core::{Buffer, Location};
+use crate::view::{rendering::RenderedBuffer, ViewGeometry};
 
 use anyhow::Result;
 
@@ -43,10 +43,6 @@ impl Editor {
 
     pub fn get_view_width(&self) -> usize {
         self.view.width
-    }
-
-    pub fn get_view_height(&self) -> usize {
-        self.view.height
     }
 
     pub fn get_view_contents(&self) -> impl Iterator<Item = String> {
@@ -170,7 +166,6 @@ impl Editor {
             self.buffer.insert_line(insert_index);
             self.rendered_buffer.insert_line(insert_index, &self.buffer);
             self.move_cursor_down_unchecked();
-            self.move_cursor_to_line_start();
         } else {
             self.buffer.split_line(self.cursor);
             self.rendered_buffer

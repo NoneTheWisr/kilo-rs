@@ -3,28 +3,18 @@ use std::io::{self, BufWriter, Stdout, Write};
 
 use anyhow::Result;
 
-use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::event;
-use crossterm::queue;
 use crossterm::style::{Print, PrintStyledContent, Stylize};
-use crossterm::terminal::{
-    self, Clear,
-    ClearType::{All, UntilNewLine},
-};
-use crossterm::QueueableCommand;
+use crossterm::event::{KeyEvent, Event, self};
+use crossterm::terminal::{self, Clear, ClearType::{All, UntilNewLine}};
+use crossterm::queue;
+use crossterm::cursor::{Hide, MoveTo, Show};
 
-use kilo_rs::backend::{editor::Editor, terminal::RawModeOverride};
-use kilo_rs::frontend::{Component, Cursor};
-
-struct KiloContext {
-    editor: Editor,
-}
+use kilo_rs::{terminal::RawModeOverride, editor::Editor, core::Location};
 
 struct Kilo {
-    context: KiloContext,
+    editor: Editor,
     is_running: bool,
     stdout: BufWriter<Stdout>,
-    components: Vec<Box<dyn Component<Context = KiloContext>>>,
 }
 
 impl Kilo {
@@ -33,17 +23,14 @@ impl Kilo {
         let height = height.saturating_sub(1);
 
         Ok(Self {
-            context: KiloContext {
-                editor: Editor::new(width as usize, height as usize),
-            },
+            editor: Editor::new(width as usize, height as usize),
             is_running: true,
             stdout: BufWriter::new(io::stdout()),
-            components: vec![Box::new(EditorComponent), Box::new(StatusComponent)],
         })
     }
-
+    
     fn open_file(&mut self, file_path: &str) -> Result<()> {
-        self.context.editor.open_file(file_path)
+        self.editor.open_file(file_path)
     }
 
     fn run(&mut self) -> Result<()> {
@@ -51,153 +38,96 @@ impl Kilo {
 
         while self.is_running {
             self.render()?;
-            self.process_events()?;
+            self.process_input()?;
         }
 
         Ok(())
     }
-
+    
     fn terminate(&mut self) -> Result<()> {
         self.is_running = false;
         queue!(self.stdout, Clear(All), MoveTo(0, 0))?;
         Ok(())
     }
 
-    fn render(&mut self) -> anyhow::Result<()> {
+    fn render(&mut self) -> Result<()> {
         queue!(self.stdout, Hide)?;
+        queue!(self.stdout, MoveTo(0, 0))?;
 
-        for component in &self.components {
-            component.render(&mut self.stdout, &self.context)?;
-        }
-        for component in &self.components {
-            if let Some(Cursor(x, y)) = component.cursor(&self.context) {
-                queue!(self.stdout, MoveTo(x, y))?;
-                break;
-            }
-        }
+        self.render_lines()?;
+        self.render_status_bar()?;
 
+        let Location { line, col } = self.editor.get_view_cursor();
         queue!(self.stdout, Show)?;
+        queue!(self.stdout, MoveTo(col as u16, line as u16))?;
+
         self.stdout.flush()?;
-
         Ok(())
     }
-
-    fn process_events(&mut self) -> anyhow::Result<()> {
-        let event = event::read()?;
-
-        use event::KeyCode::*;
-        use event::KeyModifiers as KM;
-        if let event::Event::Key(event::KeyEvent { modifiers, code }) = event {
-            match (modifiers, code) {
-                (KM::CONTROL, Char('q')) => self.terminate()?,
-                _ => {}
-            }
+    
+    fn render_lines(&mut self) -> Result<()>  {
+        for line in self.editor.get_view_contents() {
+            queue!(self.stdout, Print(line))?;
+            queue!(self.stdout, Clear(UntilNewLine))?;
+            queue!(self.stdout, Print("\r\n"))?;
         }
-
-        for component in &mut self.components {
-            component.process_event(&event, &mut self.context)?;
-        }
-
         Ok(())
     }
-}
-
-struct EditorComponent;
-struct StatusComponent;
-
-impl Component for EditorComponent {
-    type Context = KiloContext;
-
-    fn render(&self, writer: &mut dyn std::io::Write, context: &KiloContext) -> anyhow::Result<()> {
-        writer.queue(MoveTo(0, 0))?;
-
-        for line in context.editor.get_view_contents() {
-            writer.queue(Print(line))?;
-            writer.queue(Clear(UntilNewLine))?;
-            writer.queue(Print("\r\n"))?;
-        }
-
-        Ok(())
-    }
-
-    fn cursor(&self, context: &KiloContext) -> Option<kilo_rs::frontend::Cursor> {
-        Some(context.editor.get_view_cursor().into())
-    }
-
-    #[rustfmt::skip]
-    fn process_event(&mut self, event: &crossterm::event::Event, context: &mut KiloContext) -> anyhow::Result<()> {
-        use event::KeyCode::*;
-        use event::KeyModifiers as KM;
-
-        if let &event::Event::Key(event::KeyEvent{ modifiers, code }) = event {
-            match (modifiers, code) {
-                (KM::NONE, Up) => context.editor.move_cursor_up(),
-                (KM::NONE, Down) => context.editor.move_cursor_down(),
-                (KM::NONE, Left) => context.editor.move_cursor_left(),
-                (KM::NONE, Right) => context.editor.move_cursor_right(),
-
-                (KM::NONE, Home) => context.editor.move_cursor_to_line_start(),
-                (KM::NONE, End) => context.editor.move_cursor_to_line_end(),
-
-                (KM::NONE, PageUp) => context.editor.move_one_view_up(),
-                (KM::NONE, PageDown) => context.editor.move_one_view_down(),
-
-                (KM::CONTROL, PageUp) => context.editor.move_cursor_to_buffer_top(),
-                (KM::CONTROL, PageDown) => context.editor.move_cursor_to_buffer_bottom(),
-
-                (KM::NONE, Backspace) => context.editor.remove_char_behind(),
-                (KM::NONE, Delete) => context.editor.remove_char_in_front(),
-
-                (KM::NONE, Char(c)) => context.editor.insert_char(c),
-                (KM::NONE, Enter) => context.editor.insert_line(),
-
-                _ => {}
-            }
-        }
-
-        Ok(())
-    }
-}
-
-impl Component for StatusComponent {
-    type Context = KiloContext;
-
-    fn render(&self, writer: &mut dyn io::Write, context: &KiloContext) -> anyhow::Result<()> {
-        let file_name = match context.editor.get_file_name() {
+    
+    fn render_status_bar(&mut self) -> Result<()> {
+        let file_name = match self.editor.get_file_name() {
             Some(name) => name,
             None => "[Scratch]",
         };
 
         let left_part = format!("{:.20}", file_name);
-        let right_part = format!(
-            "{}/{}",
-            context.editor.get_buffer_cursor().line + 1,
-            context.editor.get_buffer_line_count()
-        );
+        let right_part = format!("{}/{}", self.editor.get_buffer_cursor().line + 1, self.editor.get_buffer_line_count());
         let total_len = left_part.len() + right_part.len();
 
-        let view_width = context.editor.get_view_width();
+        let view_width = self.editor.get_view_width();
         let status_bar = if total_len <= view_width {
             left_part + &" ".repeat(view_width - total_len) + &right_part
         } else {
             format!("{left_part:0$.0$}", view_width)
         };
 
-        let status_line = context.editor.get_view_height();
-        writer.queue(MoveTo(0, status_line as u16))?;
-        writer.queue(PrintStyledContent(status_bar.negative()))?;
+        queue!(self.stdout, PrintStyledContent(status_bar.negative()))?;
         Ok(())
     }
 
-    fn cursor(&self, _context: &KiloContext) -> Option<kilo_rs::frontend::Cursor> {
-        None
-    }
+    #[rustfmt::skip]
+    fn process_input(&mut self) -> Result<()> {
+        if let Event::Key(KeyEvent { code, modifiers }) = event::read()? {
+            use event::KeyCode::*;
+            use event::KeyModifiers as KM;
 
-    fn process_event(
-        &mut self,
-        _event: &event::Event,
-        _context: &mut KiloContext,
-    ) -> anyhow::Result<()> {
+            match (modifiers, code) {
+                (KM::NONE, Up)       => self.editor.move_cursor_up(),
+                (KM::NONE, Down)     => self.editor.move_cursor_down(),
+                (KM::NONE, Left)     => self.editor.move_cursor_left(),
+                (KM::NONE, Right)    => self.editor.move_cursor_right(),
+
+                (KM::NONE, Home)     => self.editor.move_cursor_to_line_start(),
+                (KM::NONE, End)      => self.editor.move_cursor_to_line_end(),
+
+                (KM::NONE, PageUp)   => self.editor.move_one_view_up(),
+                (KM::NONE, PageDown) => self.editor.move_one_view_down(),
+
+                (KM::CONTROL, PageUp)   => self.editor.move_cursor_to_buffer_top(),
+                (KM::CONTROL, PageDown) => self.editor.move_cursor_to_buffer_bottom(),
+
+                (KM::CONTROL, Char('q')) => self.terminate()?,
+                
+                (KM::NONE, Backspace) => self.editor.remove_char_behind(),
+                (KM::NONE, Delete) => self.editor.remove_char_in_front(),
+                
+                (KM::NONE, Char(c)) => self.editor.insert_char(c),
+                (KM::NONE, Enter) => self.editor.insert_line(),
+
+                _ => {},
+            }
+        }        
+
         Ok(())
     }
 }

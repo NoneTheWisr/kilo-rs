@@ -1,2 +1,4 @@
-pub mod backend;
-pub mod frontend;
+pub mod core;
+pub mod editor;
+pub mod terminal;
+pub mod view;
