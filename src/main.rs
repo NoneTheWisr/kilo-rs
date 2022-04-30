@@ -1,139 +1,262 @@
 use std::env;
 use std::io::{self, BufWriter, Stdout, Write};
 
-use anyhow::Result;
+use anyhow::{Result, Context};
 
-use crossterm::style::{Print, PrintStyledContent, Stylize};
-use crossterm::event::{KeyEvent, Event, self};
-use crossterm::terminal::{self, Clear, ClearType::{All, UntilNewLine}};
-use crossterm::queue;
 use crossterm::cursor::{Hide, MoveTo, Show};
+use crossterm::event::{self, KeyEvent};
+use crossterm::queue;
+use crossterm::style::{Print, PrintStyledContent, Stylize};
+use crossterm::terminal::{
+    self, Clear,
+    ClearType::{All, UntilNewLine},
+};
 
-use kilo_rs::{terminal::RawModeOverride, editor::Editor, core::Location};
+use kilo_rs::{core::Location, editor::Editor, terminal::RawModeOverride};
 
-struct Kilo {
+trait Component {
+    fn new() -> Self;
+    fn render(&self, writer: &mut impl io::Write, context: &SharedContext) -> Result<()>;
+    fn cursor(&self, context: &SharedContext) -> Option<Location>;
+    fn process_event(&mut self, event: &KeyEvent, context: &mut SharedContext) -> Result<()>;
+}
+
+struct SharedContext {
     editor: Editor,
-    is_running: bool,
+    execution_state: ExecutionState,
+    logical_state: LogicalState,
+}
+
+enum ExecutionState {
+    Initialization,
+    Running,
+    Closing,
+}
+
+enum LogicalState {
+    EditorFocus,
+    PromptFocus,
+}
+
+struct App {
+    root: RootComponent,
+    context: SharedContext,
     stdout: BufWriter<Stdout>,
 }
 
-impl Kilo {
+impl App {
     fn new() -> Result<Self> {
         let (width, height) = terminal::size()?;
         let height = height.saturating_sub(1);
 
         Ok(Self {
-            editor: Editor::new(width as usize, height as usize),
-            is_running: true,
+            root: RootComponent::new(),
+            context: SharedContext {
+                editor: Editor::new(width as usize, height as usize),
+                execution_state: ExecutionState::Initialization,
+                logical_state: LogicalState::EditorFocus,
+            },
             stdout: BufWriter::new(io::stdout()),
         })
     }
-    
+
     fn open_file(&mut self, file_path: &str) -> Result<()> {
-        self.editor.open_file(file_path)
+        self.context.editor.open_file(file_path)
     }
 
     fn run(&mut self) -> Result<()> {
         let _override = RawModeOverride::new()?;
 
-        while self.is_running {
+        self.context.execution_state = ExecutionState::Running;
+        while let ExecutionState::Running = self.context.execution_state {
             self.render()?;
-            self.process_input()?;
+            self.process_events()?;
         }
 
         Ok(())
     }
-    
+
     fn terminate(&mut self) -> Result<()> {
-        self.is_running = false;
+        self.context.execution_state = ExecutionState::Closing;
         queue!(self.stdout, Clear(All), MoveTo(0, 0))?;
         Ok(())
     }
 
-    fn render(&mut self) -> Result<()> {
+    fn render(&mut self) -> anyhow::Result<()> {
         queue!(self.stdout, Hide)?;
-        queue!(self.stdout, MoveTo(0, 0))?;
 
-        self.render_lines()?;
-        self.render_status_bar()?;
+        self.root.render(&mut self.stdout, &self.context)?;
 
-        let Location { line, col } = self.editor.get_view_cursor();
-        queue!(self.stdout, Show)?;
+        let Location { line, col } = self.root.cursor(&self.context)
+            .context("failed to get cursor location")?;
         queue!(self.stdout, MoveTo(col as u16, line as u16))?;
 
+        queue!(self.stdout, Show)?;
         self.stdout.flush()?;
+
         Ok(())
     }
-    
-    fn render_lines(&mut self) -> Result<()>  {
-        for line in self.editor.get_view_contents() {
-            queue!(self.stdout, Print(line))?;
-            queue!(self.stdout, Clear(UntilNewLine))?;
-            queue!(self.stdout, Print("\r\n"))?;
+
+    fn process_events(&mut self) -> anyhow::Result<()> {
+        use event::KeyCode::*;
+        use event::KeyModifiers as KM;
+
+        if let event::Event::Key(event @ KeyEvent { modifiers, code }) = event::read()? {
+            match (modifiers, code) {
+                (KM::CONTROL, Char('q')) => self.terminate()?,
+                _ => self.root.process_event(&event, &mut self.context)?,
+            };
         }
+
         Ok(())
     }
-    
-    fn render_status_bar(&mut self) -> Result<()> {
-        let file_name = match self.editor.get_file_name() {
+}
+
+struct EditorComponent;
+struct StatusComponent;
+struct RootComponent {
+    editor: EditorComponent,
+    status: StatusComponent,
+}
+
+impl Component for RootComponent {
+    fn new() -> Self {
+        Self {
+            editor: EditorComponent::new(),
+            status: StatusComponent::new(),
+        }
+    }
+
+    fn render(&self, writer: &mut impl io::Write, context: &SharedContext) -> Result<()> {
+        self.editor.render(writer, context)?;
+        self.status.render(writer, context)?;
+
+        Ok(())
+    }
+
+    fn cursor(&self, context: &SharedContext) -> Option<Location> {
+        match context.logical_state {
+            LogicalState::EditorFocus => self.editor.cursor(context),
+            LogicalState::PromptFocus => self.status.cursor(context),
+        }
+    }
+
+    fn process_event(&mut self, event: &KeyEvent, context: &mut SharedContext) -> Result<()> {
+        match context.logical_state {
+            LogicalState::EditorFocus => self.editor.process_event(event, context)?,
+            LogicalState::PromptFocus => self.status.process_event(event, context)?,
+        }
+
+        Ok(())
+    }
+}
+
+impl Component for EditorComponent {
+    fn new() -> Self {
+        Self
+    }
+
+    fn render(
+        &self,
+        writer: &mut impl std::io::Write,
+        context: &SharedContext,
+    ) -> anyhow::Result<()> {
+        queue!(writer, MoveTo(0, 0))?;
+
+        for line in context.editor.get_view_contents() {
+            queue!(writer, Print(line))?;
+            queue!(writer, Clear(UntilNewLine))?;
+            queue!(writer, Print("\r\n"))?;
+        }
+
+        Ok(())
+    }
+
+    fn cursor(&self, context: &SharedContext) -> Option<Location> {
+        Some(context.editor.get_view_cursor())
+    }
+
+    #[rustfmt::skip]
+    fn process_event(&mut self, event: &KeyEvent, context: &mut SharedContext) -> anyhow::Result<()> {
+        use event::KeyCode::*;
+        use event::KeyModifiers as KM;
+
+        let &KeyEvent{ modifiers, code } = event;
+        match (modifiers, code) {
+            (KM::NONE, Up) => context.editor.move_cursor_up(),
+            (KM::NONE, Down) => context.editor.move_cursor_down(),
+            (KM::NONE, Left) => context.editor.move_cursor_left(),
+            (KM::NONE, Right) => context.editor.move_cursor_right(),
+
+            (KM::NONE, Home) => context.editor.move_cursor_to_line_start(),
+            (KM::NONE, End) => context.editor.move_cursor_to_line_end(),
+
+            (KM::NONE, PageUp) => context.editor.move_one_view_up(),
+            (KM::NONE, PageDown) => context.editor.move_one_view_down(),
+
+            (KM::CONTROL, PageUp) => context.editor.move_cursor_to_buffer_top(),
+            (KM::CONTROL, PageDown) => context.editor.move_cursor_to_buffer_bottom(),
+
+            (KM::NONE, Backspace) => context.editor.remove_char_behind(),
+            (KM::NONE, Delete) => context.editor.remove_char_in_front(),
+
+            (KM::NONE, Char(c)) => context.editor.insert_char(c),
+            (KM::NONE, Enter) => context.editor.insert_line(),
+
+            _ => {}
+        }
+        
+        Ok(())
+    }
+}
+
+impl Component for StatusComponent {
+    fn new() -> Self {
+        Self
+    }
+
+    fn render(&self, writer: &mut impl io::Write, context: &SharedContext) -> anyhow::Result<()> {
+        let file_name = match context.editor.get_file_name() {
             Some(name) => name,
             None => "[Scratch]",
         };
 
         let left_part = format!("{:.20}", file_name);
-        let right_part = format!("{}/{}", self.editor.get_buffer_cursor().line + 1, self.editor.get_buffer_line_count());
+        let right_part = format!(
+            "{}/{}",
+            context.editor.get_buffer_cursor().line + 1,
+            context.editor.get_buffer_line_count()
+        );
         let total_len = left_part.len() + right_part.len();
 
-        let view_width = self.editor.get_view_width();
+        let view_width = context.editor.get_view_width();
         let status_bar = if total_len <= view_width {
             left_part + &" ".repeat(view_width - total_len) + &right_part
         } else {
             format!("{left_part:0$.0$}", view_width)
         };
 
-        queue!(self.stdout, PrintStyledContent(status_bar.negative()))?;
+        let status_line = context.editor.get_view_height();
+        queue!(writer, MoveTo(0, status_line as u16))?;
+        queue!(writer, PrintStyledContent(status_bar.negative()))?;
         Ok(())
     }
 
-    #[rustfmt::skip]
-    fn process_input(&mut self) -> Result<()> {
-        if let Event::Key(KeyEvent { code, modifiers }) = event::read()? {
-            use event::KeyCode::*;
-            use event::KeyModifiers as KM;
+    fn cursor(&self, _context: &SharedContext) -> Option<Location> {
+        None
+    }
 
-            match (modifiers, code) {
-                (KM::NONE, Up)       => self.editor.move_cursor_up(),
-                (KM::NONE, Down)     => self.editor.move_cursor_down(),
-                (KM::NONE, Left)     => self.editor.move_cursor_left(),
-                (KM::NONE, Right)    => self.editor.move_cursor_right(),
-
-                (KM::NONE, Home)     => self.editor.move_cursor_to_line_start(),
-                (KM::NONE, End)      => self.editor.move_cursor_to_line_end(),
-
-                (KM::NONE, PageUp)   => self.editor.move_one_view_up(),
-                (KM::NONE, PageDown) => self.editor.move_one_view_down(),
-
-                (KM::CONTROL, PageUp)   => self.editor.move_cursor_to_buffer_top(),
-                (KM::CONTROL, PageDown) => self.editor.move_cursor_to_buffer_bottom(),
-
-                (KM::CONTROL, Char('q')) => self.terminate()?,
-                
-                (KM::NONE, Backspace) => self.editor.remove_char_behind(),
-                (KM::NONE, Delete) => self.editor.remove_char_in_front(),
-                
-                (KM::NONE, Char(c)) => self.editor.insert_char(c),
-                (KM::NONE, Enter) => self.editor.insert_line(),
-
-                _ => {},
-            }
-        }        
-
+    fn process_event(
+        &mut self,
+        _event: &KeyEvent,
+        _context: &mut SharedContext,
+    ) -> anyhow::Result<()> {
         Ok(())
     }
 }
 
 fn main() -> Result<()> {
-    let mut kilo = Kilo::new()?;
+    let mut kilo = App::new()?;
 
     let args: Vec<_> = env::args().skip(1).collect();
     match args.len() {

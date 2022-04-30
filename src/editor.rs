@@ -45,6 +45,10 @@ impl Editor {
         self.view.width
     }
 
+    pub fn get_view_height(&self) -> usize {
+        self.view.height
+    }
+
     pub fn get_view_contents(&self) -> impl Iterator<Item = String> {
         let ViewGeometry {
             line,
