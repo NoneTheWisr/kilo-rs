@@ -12,13 +12,12 @@ use crossterm::terminal::{
     ClearType::{All, UntilNewLine},
 };
 
-use kilo_rs::{core::Location, editor::Editor, terminal::RawModeOverride};
+use kilo_rs_backend::{core::Location, editor::Editor, terminal::RawModeOverride};
 
-trait Component {
-    fn new() -> Self;
-    fn render(&self, writer: &mut impl io::Write, context: &SharedContext) -> Result<()>;
-    fn cursor(&self, context: &SharedContext) -> Option<Location>;
-    fn process_event(&mut self, event: &KeyEvent, context: &mut SharedContext) -> Result<()>;
+struct App {
+    root: RootComponent,
+    context: SharedContext,
+    stdout: BufWriter<Stdout>,
 }
 
 struct SharedContext {
@@ -36,12 +35,6 @@ enum ExecutionState {
 enum LogicalState {
     EditorFocus,
     PromptFocus,
-}
-
-struct App {
-    root: RootComponent,
-    context: SharedContext,
-    stdout: BufWriter<Stdout>,
 }
 
 impl App {
@@ -112,24 +105,29 @@ impl App {
     }
 }
 
-struct EditorComponent;
-struct StatusComponent;
+trait Component {
+    fn new() -> Self;
+    fn render(&self, writer: &mut impl io::Write, context: &SharedContext) -> Result<()>;
+    fn cursor(&self, context: &SharedContext) -> Option<Location>;
+    fn process_event(&mut self, event: &KeyEvent, context: &mut SharedContext) -> Result<()>;
+}
+
 struct RootComponent {
     editor: EditorComponent,
-    status: StatusComponent,
+    status_bar: StatusBarComponent,
 }
 
 impl Component for RootComponent {
     fn new() -> Self {
         Self {
             editor: EditorComponent::new(),
-            status: StatusComponent::new(),
+            status_bar: StatusBarComponent::new(),
         }
     }
 
     fn render(&self, writer: &mut impl io::Write, context: &SharedContext) -> Result<()> {
         self.editor.render(writer, context)?;
-        self.status.render(writer, context)?;
+        self.status_bar.render(writer, context)?;
 
         Ok(())
     }
@@ -137,19 +135,28 @@ impl Component for RootComponent {
     fn cursor(&self, context: &SharedContext) -> Option<Location> {
         match context.logical_state {
             LogicalState::EditorFocus => self.editor.cursor(context),
-            LogicalState::PromptFocus => self.status.cursor(context),
+            LogicalState::PromptFocus => self.status_bar.cursor(context),
         }
     }
 
+    #[allow(unused_imports)]
     fn process_event(&mut self, event: &KeyEvent, context: &mut SharedContext) -> Result<()> {
-        match context.logical_state {
-            LogicalState::EditorFocus => self.editor.process_event(event, context)?,
-            LogicalState::PromptFocus => self.status.process_event(event, context)?,
+        use event::KeyCode::*;
+        use event::KeyModifiers as KM;
+
+        let &KeyEvent{ modifiers, code } = event;
+        match (modifiers, code) {
+            _ => match context.logical_state {
+                LogicalState::EditorFocus => self.editor.process_event(event, context)?,
+                LogicalState::PromptFocus => self.status_bar.process_event(event, context)?,
+            },
         }
 
         Ok(())
     }
 }
+
+struct EditorComponent;
 
 impl Component for EditorComponent {
     fn new() -> Self {
@@ -210,7 +217,9 @@ impl Component for EditorComponent {
     }
 }
 
-impl Component for StatusComponent {
+struct StatusBarComponent;
+
+impl Component for StatusBarComponent {
     fn new() -> Self {
         Self
     }

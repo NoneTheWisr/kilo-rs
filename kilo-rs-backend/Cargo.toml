@@ -1,0 +1,8 @@
+[package]
+name = "kilo-rs-backend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.56"
+crossterm = "0.23.2"
