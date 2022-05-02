@@ -3,7 +3,7 @@ use std::io::{self, BufWriter, Stdout, Write};
 use anyhow::{Context, Result};
 
 use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::event::{self, KeyEvent};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::queue;
 use crossterm::terminal::{self, Clear, ClearType::All};
 
@@ -26,8 +26,8 @@ impl App {
             root: RootComponent::new(),
             context: SharedContext {
                 editor: Editor::new(width as usize, height as usize),
-                execution_state: ExecutionState::Initialization,
-                logical_state: Focus::TextArea,
+                state: ExecutionState::Initialization,
+                focus: Focus::TextArea,
             },
             stdout: BufWriter::new(io::stdout()),
         })
@@ -40,8 +40,8 @@ impl App {
     pub fn run(&mut self) -> Result<()> {
         let _override = RawModeOverride::new()?;
 
-        self.context.execution_state = ExecutionState::Running;
-        while let ExecutionState::Running = self.context.execution_state {
+        self.context.state = ExecutionState::Running;
+        while let ExecutionState::Running = self.context.state {
             self.render()?;
             self.process_events()?;
         }
@@ -50,12 +50,12 @@ impl App {
     }
 
     fn terminate(&mut self) -> Result<()> {
-        self.context.execution_state = ExecutionState::Closing;
+        self.context.state = ExecutionState::Closing;
         queue!(self.stdout, Clear(All), MoveTo(0, 0))?;
         Ok(())
     }
 
-    fn render(&mut self) -> anyhow::Result<()> {
+    fn render(&mut self) -> Result<()> {
         queue!(self.stdout, Hide)?;
 
         self.root.render(&mut self.stdout, &self.context)?;
@@ -72,11 +72,11 @@ impl App {
         Ok(())
     }
 
-    fn process_events(&mut self) -> anyhow::Result<()> {
-        use event::KeyCode::*;
-        use event::KeyModifiers as KM;
+    fn process_events(&mut self) -> Result<()> {
+        use KeyCode::*;
+        use KeyModifiers as KM;
 
-        if let event::Event::Key(event @ KeyEvent { modifiers, code }) = event::read()? {
+        if let Event::Key(event @ KeyEvent { modifiers, code }) = event::read()? {
             match (modifiers, code) {
                 (KM::CONTROL, Char('q')) => self.terminate()?,
                 _ => self.root.process_event(&event, &mut self.context)?,

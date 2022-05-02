@@ -1,5 +1,6 @@
-use std::io;
+use std::io::Write;
 
+use anyhow::Result;
 use crossterm::cursor::MoveTo;
 use crossterm::event::KeyEvent;
 use crossterm::queue;
@@ -16,11 +17,7 @@ impl StatusBarComponent {
         Self
     }
 
-    pub fn render(
-        &self,
-        writer: &mut impl io::Write,
-        context: &SharedContext,
-    ) -> anyhow::Result<()> {
+    pub fn render(&self, writer: &mut impl Write, context: &SharedContext) -> Result<()> {
         let file_name = match context.editor.get_file_name() {
             Some(name) => name,
             None => "[Scratch]",
@@ -51,11 +48,7 @@ impl StatusBarComponent {
         None
     }
 
-    pub fn process_event(
-        &mut self,
-        _event: &KeyEvent,
-        _context: &mut SharedContext,
-    ) -> anyhow::Result<()> {
+    pub fn process_event(&mut self, _event: &KeyEvent, _context: &mut SharedContext) -> Result<()> {
         Ok(())
     }
 }

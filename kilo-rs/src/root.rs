@@ -1,8 +1,8 @@
-use std::io;
+use std::io::Write;
 
 use anyhow::Result;
 
-use crossterm::event::{self, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use kilo_rs_backend::core::Location;
 
@@ -25,7 +25,7 @@ impl RootComponent {
         }
     }
 
-    pub fn render(&self, writer: &mut impl io::Write, context: &SharedContext) -> Result<()> {
+    pub fn render(&self, writer: &mut impl Write, context: &SharedContext) -> Result<()> {
         self.text_area.render(writer, context)?;
         self.status_bar.render(writer, context)?;
 
@@ -33,7 +33,7 @@ impl RootComponent {
     }
 
     pub fn cursor(&self, context: &SharedContext) -> Option<Location> {
-        match context.logical_state {
+        match context.focus {
             Focus::TextArea => self.text_area.cursor(context),
             Focus::StatusBar => self.status_bar.cursor(context),
         }
@@ -41,12 +41,12 @@ impl RootComponent {
 
     #[allow(unused_imports)]
     pub fn process_event(&mut self, event: &KeyEvent, context: &mut SharedContext) -> Result<()> {
-        use event::KeyCode::*;
-        use event::KeyModifiers as KM;
+        use KeyCode::*;
+        use KeyModifiers as KM;
 
         let &KeyEvent { modifiers, code } = event;
         match (modifiers, code) {
-            _ => match context.logical_state {
+            _ => match context.focus {
                 Focus::TextArea => self.text_area.process_event(event, context)?,
                 Focus::StatusBar => self.status_bar.process_event(event, context)?,
             },

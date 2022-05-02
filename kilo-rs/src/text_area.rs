@@ -1,5 +1,9 @@
+use std::io::Write;
+
+use anyhow::Result;
+
 use crossterm::cursor::MoveTo;
-use crossterm::event::{self, KeyEvent};
+use crossterm::event::{KeyCode, KeyModifiers, KeyEvent};
 use crossterm::queue;
 use crossterm::style::Print;
 use crossterm::terminal::{Clear, ClearType::UntilNewLine};
@@ -15,11 +19,7 @@ impl TextAreaComponent {
         Self
     }
 
-    pub fn render(
-        &self,
-        writer: &mut impl std::io::Write,
-        context: &SharedContext,
-    ) -> anyhow::Result<()> {
+    pub fn render( &self, writer: &mut impl Write, context: &SharedContext, ) -> Result<()> {
         queue!(writer, MoveTo(0, 0))?;
 
         for line in context.editor.get_view_contents() {
@@ -36,9 +36,9 @@ impl TextAreaComponent {
     }
 
     #[rustfmt::skip]
-    pub fn process_event(&mut self, event: &KeyEvent, context: &mut SharedContext) -> anyhow::Result<()> {
-        use event::KeyCode::*;
-        use event::KeyModifiers as KM;
+    pub fn process_event(&mut self, event: &KeyEvent, context: &mut SharedContext) -> Result<()> {
+        use KeyCode::*;
+        use KeyModifiers as KM;
 
         let &KeyEvent{ modifiers, code } = event;
         match (modifiers, code) {
