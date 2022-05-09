@@ -1,11 +1,11 @@
-use std::io;
+use std::io::Write;
 
 use anyhow::Result;
 
-use rustea::crossterm::cursor::{MoveTo, Show};
+use rustea::command;
+use rustea::crossterm::cursor::{Hide, MoveTo, Show};
 use rustea::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use rustea::crossterm::{queue, terminal};
-use rustea::{command, Message};
 
 use crate::shared::{ExecutionState, Focus, SharedContext};
 use crate::status_bar::StatusBarComponent;
@@ -20,10 +20,6 @@ pub struct App {
 }
 
 impl rustea::App for App {
-    fn init(&self) -> Option<rustea::Command> {
-        Some(Box::new(show_cursor))
-    }
-
     fn update(&mut self, msg: rustea::Message) -> Option<rustea::Command> {
         if let Some(KeyEvent {
             code: KeyCode::Char('q'),
@@ -39,16 +35,16 @@ impl rustea::App for App {
         }
     }
 
-    fn view(&self) -> String {
-        let mut view = Vec::new();
+    fn view(&self, stdout: &mut impl Write) {
+        queue!(stdout, Hide).unwrap();
 
-        self.status_bar.render(&mut view, &self.context).unwrap();
-        self.text_area.render(&mut view, &self.context).unwrap();
+        self.status_bar.render(stdout, &self.context).unwrap();
+        self.text_area.render(stdout, &self.context).unwrap();
 
         let Location { line, col } = self.cursor();
-        queue!(view, MoveTo(col as u16, line as u16)).unwrap();
+        queue!(stdout, MoveTo(col as u16, line as u16), Show).unwrap();
 
-        String::from_utf8_lossy(&view).into_owned()
+        stdout.flush().unwrap();
     }
 }
 
@@ -78,9 +74,4 @@ impl App {
             Focus::StatusBar => self.status_bar.cursor(&self.context).unwrap(),
         }
     }
-}
-
-fn show_cursor() -> Option<Message> {
-    queue!(io::stdout(), Show).unwrap();
-    None
 }

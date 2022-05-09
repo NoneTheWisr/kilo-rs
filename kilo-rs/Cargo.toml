@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.56"
-rustea = "0.1.6"
+rustea = { git = "https://github.com/NoneTheWisr/rustea-write", rev = "620e4be" }
 kilo-rs-backend = { path = "../kilo-rs-backend", version = "0.1.0" }

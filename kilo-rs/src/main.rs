@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use kilo_rs::app::App;
+use kilo_rs::{app::App, term_utils::RawModeOverride};
 use rustea::crossterm::{
     cursor::MoveTo,
     execute,
@@ -18,6 +18,7 @@ fn main() -> Result<()> {
     // }
 
     // kilo.run()
+    let _override = RawModeOverride::new();
     let mut stdout = std::io::stdout();
 
     execute!(stdout, Clear(All))?;

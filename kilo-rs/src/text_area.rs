@@ -8,6 +8,7 @@ use rustea::crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
     queue,
     style::Print,
+    terminal::{Clear, ClearType::UntilNewLine},
 };
 
 use crate::shared::SharedContext;
@@ -23,7 +24,9 @@ impl TextAreaComponent {
         queue!(writer, MoveTo(0, 0))?;
 
         for line in context.editor.get_view_contents() {
-            queue!(writer, Print(line), Print("\r\n"))?;
+            queue!(writer, Print(line))?;
+            queue!(writer, Clear(UntilNewLine))?;
+            queue!(writer, Print("\r\n"))?;
         }
 
         Ok(())
