@@ -1,12 +1,13 @@
 use std::io::Write;
 
 use anyhow::Result;
-use crossterm::cursor::MoveTo;
-use crossterm::event::KeyEvent;
-use crossterm::queue;
-use crossterm::style::{PrintStyledContent, Stylize};
 
 use kilo_rs_backend::core::Location;
+use rustea::crossterm::{
+    cursor::MoveTo,
+    queue,
+    style::{PrintStyledContent, Stylize},
+};
 
 use crate::shared::SharedContext;
 
@@ -41,6 +42,7 @@ impl StatusBarComponent {
         let status_line = context.editor.get_view_height();
         queue!(writer, MoveTo(0, status_line as u16))?;
         queue!(writer, PrintStyledContent(status_bar.negative()))?;
+
         Ok(())
     }
 
@@ -48,7 +50,11 @@ impl StatusBarComponent {
         None
     }
 
-    pub fn process_event(&mut self, _event: &KeyEvent, _context: &mut SharedContext) -> Result<()> {
-        Ok(())
+    pub fn update(
+        &mut self,
+        _msg: rustea::Message,
+        _context: &mut SharedContext,
+    ) -> Option<rustea::Command> {
+        None
     }
 }
