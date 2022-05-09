@@ -9,7 +9,8 @@ use crossterm::terminal::{self, Clear, ClearType::All};
 
 use crate::root::RootComponent;
 use crate::shared::{ExecutionState, Focus, SharedContext};
-use kilo_rs_backend::{core::Location, editor::Editor, terminal::RawModeOverride};
+use crate::term_utils::RawModeOverride;
+use kilo_rs_backend::{core::Location, editor::Editor};
 
 pub struct App {
     root: RootComponent,
