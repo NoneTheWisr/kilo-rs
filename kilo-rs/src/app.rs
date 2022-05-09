@@ -3,15 +3,16 @@ use std::io::Write;
 use anyhow::Result;
 
 use rustea::command;
-use rustea::crossterm::cursor::{Hide, MoveTo, Show};
+use rustea::crossterm::cursor::{Hide, Show};
 use rustea::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use rustea::crossterm::{queue, terminal};
 
 use crate::shared::{ExecutionState, Focus, SharedContext};
 use crate::status_bar::StatusBarComponent;
+use crate::term_utils::{Cursor, MoveTo};
 use crate::text_area::TextAreaComponent;
 
-use kilo_rs_backend::{core::Location, editor::Editor};
+use kilo_rs_backend::editor::Editor;
 
 pub struct App {
     status_bar: StatusBarComponent,
@@ -41,8 +42,7 @@ impl rustea::App for App {
         self.status_bar.render(stdout, &self.context).unwrap();
         self.text_area.render(stdout, &self.context).unwrap();
 
-        let Location { line, col } = self.cursor();
-        queue!(stdout, MoveTo(col as u16, line as u16), Show).unwrap();
+        queue!(stdout, MoveTo(self.cursor()), Show).unwrap();
 
         stdout.flush().unwrap();
     }
@@ -68,7 +68,7 @@ impl App {
         self.context.editor.open_file(file_path)
     }
 
-    fn cursor(&self) -> Location {
+    fn cursor(&self) -> Cursor {
         match self.context.focus {
             Focus::TextArea => self.text_area.cursor(&self.context).unwrap(),
             Focus::StatusBar => self.status_bar.cursor(&self.context).unwrap(),

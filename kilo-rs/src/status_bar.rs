@@ -2,14 +2,13 @@ use std::io::Write;
 
 use anyhow::Result;
 
-use kilo_rs_backend::core::Location;
 use rustea::crossterm::{
     cursor::MoveTo,
     queue,
     style::{PrintStyledContent, Stylize},
 };
 
-use crate::shared::SharedContext;
+use crate::{shared::SharedContext, term_utils::Cursor};
 
 pub struct StatusBarComponent;
 
@@ -46,7 +45,7 @@ impl StatusBarComponent {
         Ok(())
     }
 
-    pub fn cursor(&self, _context: &SharedContext) -> Option<Location> {
+    pub fn cursor(&self, _context: &SharedContext) -> Option<Cursor> {
         None
     }
 
