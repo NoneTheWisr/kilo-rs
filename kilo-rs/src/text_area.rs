@@ -11,9 +11,7 @@ use rustea::crossterm::{
     terminal::{Clear, ClearType::UntilNewLine},
 };
 
-use crate::{
-    editor_controller::EditorControllerMessage, shared::SharedContext, term_utils::Cursor,
-};
+use crate::{editor_controller::UpdateViewMessage, shared::SharedContext, term_utils::Cursor};
 
 pub enum TextAreaMessage {
     MoveCursorUp,
@@ -97,17 +95,12 @@ impl TextAreaComponent {
             };
 
             Some(Box::new(|| Some(Box::new(message))))
-        } else if let Ok(message) = msg.downcast::<EditorControllerMessage>() {
-            use EditorControllerMessage::*;
+        } else if let Ok(message) = msg.downcast::<UpdateViewMessage>() {
+            let message = *message;
 
-            match *message {
-                UpdateView { lines, cursor } => {
-                    self.lines = lines.collect();
-
-                    let Location { line, col } = cursor;
-                    self.cursor = Cursor::new(line as u16, col as u16);
-                }
-            }
+            self.lines = message.lines.collect();
+            let Location { line, col } = message.cursor;
+            self.cursor = Cursor::new(line as u16, col as u16);
 
             None
         } else {

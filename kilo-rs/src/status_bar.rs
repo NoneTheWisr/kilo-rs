@@ -8,27 +8,26 @@ use rustea::crossterm::{
     style::{PrintStyledContent, Stylize},
 };
 
-use crate::{shared::SharedContext, term_utils::Cursor};
+use crate::{editor_controller::UpdateStatusMessage, shared::SharedContext, term_utils::Cursor};
 
-pub struct StatusBarComponent;
+pub struct StatusBarComponent {
+    buffer_name: String,
+    cursor_line: usize,
+    line_count: usize,
+}
 
 impl StatusBarComponent {
     pub fn new() -> Self {
-        Self
+        Self {
+            buffer_name: String::from("[Scratch]"),
+            cursor_line: 1,
+            line_count: 1,
+        }
     }
 
     pub fn render(&self, writer: &mut impl Write, context: &SharedContext) -> Result<()> {
-        let file_name = match context.editor.get_file_name() {
-            Some(name) => name,
-            None => "[Scratch]",
-        };
-
-        let left_part = format!("{:.20}", file_name);
-        let right_part = format!(
-            "{}/{}",
-            context.editor.get_buffer_cursor().line + 1,
-            context.editor.get_buffer_line_count()
-        );
+        let left_part = format!("{:.20}", self.buffer_name);
+        let right_part = format!("{}/{}", self.cursor_line, self.line_count,);
         let total_len = left_part.len() + right_part.len();
 
         let view_width = context.editor.get_view_width();
@@ -49,11 +48,15 @@ impl StatusBarComponent {
         None
     }
 
-    pub fn update(
-        &mut self,
-        _msg: rustea::Message,
-        _context: &mut SharedContext,
-    ) -> Option<rustea::Command> {
+    pub fn update(&mut self, msg: rustea::Message) -> Option<rustea::Command> {
+        if let Ok(message) = msg.downcast::<UpdateStatusMessage>() {
+            let message = *message;
+
+            self.cursor_line = message.cursor_line;
+            self.line_count = message.line_count;
+            self.buffer_name = message.file_name.unwrap_or("[Scratch]".into());
+        }
+
         None
     }
 }

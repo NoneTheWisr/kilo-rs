@@ -1,12 +1,18 @@
+use rustea::command;
+
 use crate::{shared::SharedContext, text_area::TextAreaMessage};
 
 pub struct EditorControllerComponent;
 
-pub enum EditorControllerMessage {
-    UpdateView {
-        lines: Box<dyn Iterator<Item = String> + Send>,
-        cursor: kilo_rs_backend::core::Location,
-    },
+pub struct UpdateViewMessage {
+    pub lines: Box<dyn Iterator<Item = String> + Send>,
+    pub cursor: kilo_rs_backend::core::Location,
+}
+
+pub struct UpdateStatusMessage {
+    pub file_name: Option<String>,
+    pub cursor_line: usize,
+    pub line_count: usize,
 }
 
 impl EditorControllerComponent {
@@ -39,12 +45,21 @@ impl EditorControllerComponent {
                 InsertLine => context.editor.insert_line(),
             };
 
-            let responce = EditorControllerMessage::UpdateView {
+            let update_view_message = UpdateViewMessage {
                 lines: Box::new(context.editor.get_view_contents()),
                 cursor: context.editor.get_view_cursor(),
             };
 
-            Some(Box::new(|| Some(Box::new(responce))))
+            let update_status_message = UpdateStatusMessage {
+                file_name: context.editor.get_file_name().cloned(),
+                cursor_line: context.editor.get_view_cursor().line.saturating_add(1),
+                line_count: context.editor.get_buffer_line_count(),
+            };
+
+            Some(command::batch(vec![
+                Box::new(|| Some(Box::new(update_view_message))),
+                Box::new(|| Some(Box::new(update_status_message))),
+            ]))
         } else {
             None
         }
