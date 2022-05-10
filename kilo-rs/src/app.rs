@@ -7,14 +7,16 @@ use rustea::crossterm::cursor::{Hide, Show};
 use rustea::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use rustea::crossterm::{queue, terminal};
 
+use crate::editor_controller::{EditorControllerComponent, EditorControllerMessage};
 use crate::shared::{ExecutionState, Focus, SharedContext};
 use crate::status_bar::StatusBarComponent;
 use crate::term_utils::{Cursor, MoveTo};
-use crate::text_area::TextAreaComponent;
+use crate::text_area::{TextAreaComponent, TextAreaMessage};
 
 use kilo_rs_backend::editor::Editor;
 
 pub struct App {
+    editor_controller: EditorControllerComponent,
     status_bar: StatusBarComponent,
     text_area: TextAreaComponent,
     context: SharedContext,
@@ -22,17 +24,25 @@ pub struct App {
 
 impl rustea::App for App {
     fn update(&mut self, msg: rustea::Message) -> Option<rustea::Command> {
-        if let Some(KeyEvent {
-            code: KeyCode::Char('q'),
-            modifiers: KeyModifiers::CONTROL,
-        }) = msg.downcast_ref::<KeyEvent>()
-        {
-            return Some(Box::new(command::quit));
-        }
+        if msg.is::<KeyEvent>() {
+            if let KeyEvent {
+                code: KeyCode::Char('q'),
+                modifiers: KeyModifiers::CONTROL,
+            } = msg.downcast_ref::<KeyEvent>().unwrap()
+            {
+                return Some(Box::new(command::quit));
+            }
 
-        match self.context.focus {
-            Focus::TextArea => self.text_area.update(msg, &mut self.context),
-            Focus::StatusBar => self.status_bar.update(msg, &mut self.context),
+            match self.context.focus {
+                Focus::TextArea => self.text_area.update(msg),
+                Focus::StatusBar => self.status_bar.update(msg, &mut self.context),
+            }
+        } else if msg.is::<TextAreaMessage>() {
+            self.editor_controller.update(msg, &mut self.context)
+        } else if msg.is::<EditorControllerMessage>() {
+            self.text_area.update(msg)
+        } else {
+            None
         }
     }
 
@@ -40,7 +50,7 @@ impl rustea::App for App {
         queue!(stdout, Hide).unwrap();
 
         self.status_bar.render(stdout, &self.context).unwrap();
-        self.text_area.render(stdout, &self.context).unwrap();
+        self.text_area.render(stdout).unwrap();
 
         queue!(stdout, MoveTo(self.cursor()), Show).unwrap();
 
@@ -53,14 +63,17 @@ impl App {
         let (width, height) = terminal::size()?;
         let height = height.saturating_sub(1);
 
+        let context = SharedContext {
+            editor: Editor::new(width as usize, height as usize),
+            state: ExecutionState::Initialization,
+            focus: Focus::TextArea,
+        };
+
         Ok(Self {
+            editor_controller: EditorControllerComponent::new(),
             status_bar: StatusBarComponent::new(),
-            text_area: TextAreaComponent::new(),
-            context: SharedContext {
-                editor: Editor::new(width as usize, height as usize),
-                state: ExecutionState::Initialization,
-                focus: Focus::TextArea,
-            },
+            text_area: TextAreaComponent::new(&context),
+            context,
         })
     }
 
@@ -70,7 +83,7 @@ impl App {
 
     fn cursor(&self) -> Cursor {
         match self.context.focus {
-            Focus::TextArea => self.text_area.cursor(&self.context).unwrap(),
+            Focus::TextArea => self.text_area.cursor().unwrap(),
             Focus::StatusBar => self.status_bar.cursor(&self.context).unwrap(),
         }
     }

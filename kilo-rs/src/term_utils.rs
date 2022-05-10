@@ -16,6 +16,7 @@ impl Drop for RawModeOverride {
     }
 }
 
+#[derive(Clone, Copy, Default)]
 pub struct Cursor {
     pub row: u16,
     pub col: u16,
