@@ -23,28 +23,37 @@ pub struct App {
 }
 
 impl rustea::App for App {
-    fn update(&mut self, msg: rustea::Message) -> Option<rustea::Command> {
-        if msg.is::<KeyEvent>() {
-            if let KeyEvent {
-                code: KeyCode::Char('q'),
-                modifiers: KeyModifiers::CONTROL,
-            } = msg.downcast_ref::<KeyEvent>().unwrap()
-            {
-                return Some(Box::new(command::quit));
-            }
+    fn update(&mut self, message: rustea::Message) -> Option<rustea::Command> {
+        match message {
+            message if message.is::<KeyEvent>() => {
+                let message = *message.downcast::<KeyEvent>().unwrap();
 
-            match self.context.focus {
-                Focus::TextArea => self.text_area.update(msg),
-                Focus::StatusBar => self.status_bar.update(msg),
+                if let KeyEvent {
+                    code: KeyCode::Char('q'),
+                    modifiers: KeyModifiers::CONTROL,
+                } = message
+                {
+                    return Some(Box::new(command::quit));
+                }
+
+                match self.context.focus {
+                    Focus::TextArea => self.text_area.process_events(message),
+                    Focus::StatusBar => self.status_bar.process_events(message),
+                }
             }
-        } else if msg.is::<TextAreaMessage>() {
-            self.text_area.update(msg)
-        } else if msg.is::<StatusBarMessage>() {
-            self.status_bar.update(msg)
-        } else if msg.is::<EditorControllerMessage>() {
-            self.editor_controller.update(msg, &mut self.context)
-        } else {
-            None
+            message if message.is::<TextAreaMessage>() => {
+                let message = *message.downcast::<TextAreaMessage>().unwrap();
+                self.text_area.update(message)
+            }
+            message if message.is::<StatusBarMessage>() => {
+                let message = *message.downcast::<StatusBarMessage>().unwrap();
+                self.status_bar.update(message)
+            }
+            message if message.is::<EditorControllerMessage>() => {
+                let message = *message.downcast::<EditorControllerMessage>().unwrap();
+                self.editor_controller.update(message, &mut self.context)
+            }
+            _ => None,
         }
     }
 

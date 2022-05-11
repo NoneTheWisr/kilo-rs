@@ -4,6 +4,7 @@ use anyhow::Result;
 
 use rustea::crossterm::{
     cursor::MoveTo,
+    event::KeyEvent,
     queue,
     style::{PrintStyledContent, Stylize},
 };
@@ -58,15 +59,17 @@ impl StatusBarComponent {
         None
     }
 
-    pub fn update(&mut self, msg: rustea::Message) -> Option<rustea::Command> {
-        if let Ok(message) = msg.downcast::<StatusBarMessage>() {
-            let StatusBarMessage::Update(message) = *message;
+    pub fn update(&mut self, message: StatusBarMessage) -> Option<rustea::Command> {
+        let StatusBarMessage::Update(message) = message;
 
-            self.cursor_line = message.cursor_line;
-            self.line_count = message.line_count;
-            self.buffer_name = message.file_name.unwrap_or("[Scratch]".into());
-        }
+        self.cursor_line = message.cursor_line;
+        self.line_count = message.line_count;
+        self.buffer_name = message.file_name.unwrap_or("[Scratch]".into());
 
+        None
+    }
+
+    pub fn process_events(&mut self, _event: KeyEvent) -> Option<rustea::Command> {
         None
     }
 }

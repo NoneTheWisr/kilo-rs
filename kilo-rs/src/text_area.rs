@@ -53,48 +53,47 @@ impl TextAreaComponent {
         Some(self.cursor)
     }
 
-    pub fn update(&mut self, msg: rustea::Message) -> Option<rustea::Command> {
-        if let Some(&KeyEvent { modifiers, code }) = msg.downcast_ref::<KeyEvent>() {
-            use EditorControllerMessage::*;
-            use KeyCode::*;
-            use KeyModifiers as KM;
+    pub fn update(&mut self, message: TextAreaMessage) -> Option<rustea::Command> {
+        let TextAreaMessage::Update(message) = message;
 
-            let message = match (modifiers, code) {
-                (KM::NONE, Up) => MoveCursorUp,
-                (KM::NONE, Down) => MoveCursorDown,
-                (KM::NONE, Left) => MoveCursorLeft,
-                (KM::NONE, Right) => MoveCursorRight,
+        self.lines = message.lines.collect();
+        let Location { line, col } = message.cursor;
+        self.cursor = Cursor::new(line as u16, col as u16);
 
-                (KM::NONE, Home) => MoveCursorToLineStart,
-                (KM::NONE, End) => MoveCursorToLineEnd,
+        None
+    }
 
-                (KM::NONE, PageUp) => MoveOneViewUp,
-                (KM::NONE, PageDown) => MoveOneViewDown,
+    pub fn process_events(&mut self, event: KeyEvent) -> Option<rustea::Command> {
+        use EditorControllerMessage::*;
+        use KeyCode::*;
+        use KeyModifiers as KM;
 
-                (KM::CONTROL, PageUp) => MoveCursorToBufferTop,
-                (KM::CONTROL, PageDown) => MoveCursorToBufferBottom,
+        let KeyEvent { code, modifiers } = event;
+        let message = match (modifiers, code) {
+            (KM::NONE, Up) => MoveCursorUp,
+            (KM::NONE, Down) => MoveCursorDown,
+            (KM::NONE, Left) => MoveCursorLeft,
+            (KM::NONE, Right) => MoveCursorRight,
 
-                (KM::NONE, Backspace) => RemoveCharBehind,
-                (KM::NONE, Delete) => RemoveCharInFront,
+            (KM::NONE, Home) => MoveCursorToLineStart,
+            (KM::NONE, End) => MoveCursorToLineEnd,
 
-                (KM::NONE, Char(c)) => InsertChar(c),
-                (KM::NONE, Enter) => InsertLine,
+            (KM::NONE, PageUp) => MoveOneViewUp,
+            (KM::NONE, PageDown) => MoveOneViewDown,
 
-                _ => return None,
-            };
+            (KM::CONTROL, PageUp) => MoveCursorToBufferTop,
+            (KM::CONTROL, PageDown) => MoveCursorToBufferBottom,
 
-            Some(Box::new(|| Some(Box::new(message))))
-        } else if let Ok(message) = msg.downcast::<TextAreaMessage>() {
-            let TextAreaMessage::Update(message) = *message;
+            (KM::NONE, Backspace) => RemoveCharBehind,
+            (KM::NONE, Delete) => RemoveCharInFront,
 
-            self.lines = message.lines.collect();
-            let Location { line, col } = message.cursor;
-            self.cursor = Cursor::new(line as u16, col as u16);
+            (KM::NONE, Char(c)) => InsertChar(c),
+            (KM::NONE, Enter) => InsertLine,
 
-            None
-        } else {
-            None
-        }
+            _ => return None,
+        };
+
+        Some(Box::new(|| Some(Box::new(message))))
     }
 }
 
