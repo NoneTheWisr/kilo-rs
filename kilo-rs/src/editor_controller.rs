@@ -1,18 +1,33 @@
 use rustea::command;
 
-use crate::{shared::SharedContext, text_area::TextAreaMessage};
+use crate::{
+    shared::SharedContext,
+    status_bar::{self, StatusBarMessage},
+    text_area::{self, TextAreaMessage},
+};
 
 pub struct EditorControllerComponent;
 
-pub struct UpdateViewMessage {
-    pub lines: Box<dyn Iterator<Item = String> + Send>,
-    pub cursor: kilo_rs_backend::core::Location,
-}
+pub enum EditorControllerMessage {
+    MoveCursorUp,
+    MoveCursorDown,
+    MoveCursorLeft,
+    MoveCursorRight,
 
-pub struct UpdateStatusMessage {
-    pub file_name: Option<String>,
-    pub cursor_line: usize,
-    pub line_count: usize,
+    MoveCursorToLineStart,
+    MoveCursorToLineEnd,
+
+    MoveOneViewUp,
+    MoveOneViewDown,
+
+    MoveCursorToBufferTop,
+    MoveCursorToBufferBottom,
+
+    RemoveCharBehind,
+    RemoveCharInFront,
+
+    InsertChar(char),
+    InsertLine,
 }
 
 impl EditorControllerComponent {
@@ -25,9 +40,9 @@ impl EditorControllerComponent {
         msg: rustea::Message,
         context: &mut SharedContext,
     ) -> Option<rustea::Command> {
-        use crate::text_area::TextAreaMessage::*;
+        use EditorControllerMessage::*;
 
-        if let Some(message) = msg.downcast_ref::<TextAreaMessage>() {
+        if let Some(message) = msg.downcast_ref::<EditorControllerMessage>() {
             match message {
                 MoveCursorUp => context.editor.move_cursor_up(),
                 MoveCursorDown => context.editor.move_cursor_down(),
@@ -45,20 +60,20 @@ impl EditorControllerComponent {
                 InsertLine => context.editor.insert_line(),
             };
 
-            let update_view_message = UpdateViewMessage {
+            let update_text_area_message = TextAreaMessage::Update(text_area::UpdateMessage {
                 lines: Box::new(context.editor.get_view_contents()),
                 cursor: context.editor.get_view_cursor(),
-            };
+            });
 
-            let update_status_message = UpdateStatusMessage {
+            let update_status_bar_message = StatusBarMessage::Update(status_bar::UpdateMessage {
                 file_name: context.editor.get_file_name().cloned(),
                 cursor_line: context.editor.get_view_cursor().line.saturating_add(1),
                 line_count: context.editor.get_buffer_line_count(),
-            };
+            });
 
             Some(command::batch(vec![
-                Box::new(|| Some(Box::new(update_view_message))),
-                Box::new(|| Some(Box::new(update_status_message))),
+                Box::new(|| Some(Box::new(update_text_area_message))),
+                Box::new(|| Some(Box::new(update_status_bar_message))),
             ]))
         } else {
             None

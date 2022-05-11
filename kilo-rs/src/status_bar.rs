@@ -8,7 +8,17 @@ use rustea::crossterm::{
     style::{PrintStyledContent, Stylize},
 };
 
-use crate::{editor_controller::UpdateStatusMessage, shared::SharedContext, term_utils::Cursor};
+use crate::{shared::SharedContext, term_utils::Cursor};
+
+pub enum StatusBarMessage {
+    Update(UpdateMessage),
+}
+
+pub struct UpdateMessage {
+    pub file_name: Option<String>,
+    pub cursor_line: usize,
+    pub line_count: usize,
+}
 
 pub struct StatusBarComponent {
     buffer_name: String,
@@ -49,8 +59,8 @@ impl StatusBarComponent {
     }
 
     pub fn update(&mut self, msg: rustea::Message) -> Option<rustea::Command> {
-        if let Ok(message) = msg.downcast::<UpdateStatusMessage>() {
-            let message = *message;
+        if let Ok(message) = msg.downcast::<StatusBarMessage>() {
+            let StatusBarMessage::Update(message) = *message;
 
             self.cursor_line = message.cursor_line;
             self.line_count = message.line_count;

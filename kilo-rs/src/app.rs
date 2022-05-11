@@ -7,9 +7,9 @@ use rustea::crossterm::cursor::{Hide, Show};
 use rustea::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use rustea::crossterm::{queue, terminal};
 
-use crate::editor_controller::{EditorControllerComponent, UpdateStatusMessage, UpdateViewMessage};
+use crate::editor_controller::{EditorControllerComponent, EditorControllerMessage};
 use crate::shared::{ExecutionState, Focus, SharedContext};
-use crate::status_bar::StatusBarComponent;
+use crate::status_bar::{StatusBarComponent, StatusBarMessage};
 use crate::term_utils::{Cursor, MoveTo};
 use crate::text_area::{TextAreaComponent, TextAreaMessage};
 
@@ -38,11 +38,11 @@ impl rustea::App for App {
                 Focus::StatusBar => self.status_bar.update(msg),
             }
         } else if msg.is::<TextAreaMessage>() {
-            self.editor_controller.update(msg, &mut self.context)
-        } else if msg.is::<UpdateViewMessage>() {
             self.text_area.update(msg)
-        } else if msg.is::<UpdateStatusMessage>() {
+        } else if msg.is::<StatusBarMessage>() {
             self.status_bar.update(msg)
+        } else if msg.is::<EditorControllerMessage>() {
+            self.editor_controller.update(msg, &mut self.context)
         } else {
             None
         }

@@ -11,28 +11,17 @@ use rustea::crossterm::{
     terminal::{Clear, ClearType::UntilNewLine},
 };
 
-use crate::{editor_controller::UpdateViewMessage, shared::SharedContext, term_utils::Cursor};
+use crate::{
+    editor_controller::EditorControllerMessage, shared::SharedContext, term_utils::Cursor,
+};
 
 pub enum TextAreaMessage {
-    MoveCursorUp,
-    MoveCursorDown,
-    MoveCursorLeft,
-    MoveCursorRight,
+    Update(UpdateMessage),
+}
 
-    MoveCursorToLineStart,
-    MoveCursorToLineEnd,
-
-    MoveOneViewUp,
-    MoveOneViewDown,
-
-    MoveCursorToBufferTop,
-    MoveCursorToBufferBottom,
-
-    RemoveCharBehind,
-    RemoveCharInFront,
-
-    InsertChar(char),
-    InsertLine,
+pub struct UpdateMessage {
+    pub lines: Box<dyn Iterator<Item = String> + Send>,
+    pub cursor: kilo_rs_backend::core::Location,
 }
 
 pub struct TextAreaComponent {
@@ -66,9 +55,9 @@ impl TextAreaComponent {
 
     pub fn update(&mut self, msg: rustea::Message) -> Option<rustea::Command> {
         if let Some(&KeyEvent { modifiers, code }) = msg.downcast_ref::<KeyEvent>() {
+            use EditorControllerMessage::*;
             use KeyCode::*;
             use KeyModifiers as KM;
-            use TextAreaMessage::*;
 
             let message = match (modifiers, code) {
                 (KM::NONE, Up) => MoveCursorUp,
@@ -95,8 +84,8 @@ impl TextAreaComponent {
             };
 
             Some(Box::new(|| Some(Box::new(message))))
-        } else if let Ok(message) = msg.downcast::<UpdateViewMessage>() {
-            let message = *message;
+        } else if let Ok(message) = msg.downcast::<TextAreaMessage>() {
+            let TextAreaMessage::Update(message) = *message;
 
             self.lines = message.lines.collect();
             let Location { line, col } = message.cursor;
