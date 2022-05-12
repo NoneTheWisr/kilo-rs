@@ -74,15 +74,19 @@ impl rustea::App for App {
 }
 
 impl App {
-    pub fn new() -> Result<Self> {
+    pub fn new(args: Vec<String>) -> Result<Self> {
         let (width, height) = terminal::size()?;
         let height = height.saturating_sub(1);
 
-        let context = SharedContext {
+        let mut context = SharedContext {
             editor: Editor::new(width as usize, height as usize),
             state: ExecutionState::Initialization,
             focus: Focus::TextArea,
         };
+
+        if args.len() == 2 {
+            context.editor.open_file(&args[1])?;
+        }
 
         Ok(Self {
             editor_controller: EditorControllerComponent::new(),
@@ -90,10 +94,6 @@ impl App {
             text_area: TextAreaComponent::new(&context),
             context,
         })
-    }
-
-    pub fn open_file(&mut self, file_path: &str) -> Result<()> {
-        self.context.editor.open_file(file_path)
     }
 
     fn cursor(&self) -> Cursor {
