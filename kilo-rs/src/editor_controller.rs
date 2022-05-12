@@ -1,6 +1,7 @@
 use rustea::command;
 
 use crate::{
+    app::message_command,
     shared::SharedContext,
     status_bar::{self, StatusBarMessage},
     text_area::{self, TextAreaMessage},
@@ -71,8 +72,8 @@ impl EditorControllerComponent {
         });
 
         Some(command::batch(vec![
-            Box::new(|| Some(Box::new(update_text_area_message))),
-            Box::new(|| Some(Box::new(update_status_bar_message))),
+            message_command(update_text_area_message),
+            message_command(update_status_bar_message),
         ]))
     }
 }

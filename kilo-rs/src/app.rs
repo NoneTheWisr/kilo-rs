@@ -15,6 +15,10 @@ use crate::text_area::{TextAreaComponent, TextAreaMessage};
 
 use kilo_rs_backend::editor::Editor;
 
+pub fn message_command(msg: impl std::any::Any + Send) -> rustea::Command {
+    Box::new(|| Some(Box::new(msg)))
+}
+
 pub struct App {
     editor_controller: EditorControllerComponent,
     status_bar: StatusBarComponent,

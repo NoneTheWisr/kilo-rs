@@ -12,7 +12,8 @@ use rustea::crossterm::{
 };
 
 use crate::{
-    editor_controller::EditorControllerMessage, shared::SharedContext, term_utils::Cursor,
+    app::message_command, editor_controller::EditorControllerMessage, shared::SharedContext,
+    term_utils::Cursor,
 };
 
 pub enum TextAreaMessage {
@@ -93,7 +94,7 @@ impl TextAreaComponent {
             _ => return None,
         };
 
-        Some(Box::new(|| Some(Box::new(message))))
+        Some(message_command(message))
     }
 }
 
