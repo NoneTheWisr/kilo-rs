@@ -3,12 +3,12 @@ use std::io::{self, BufWriter, Stdout, Write};
 use anyhow::{Context, Result};
 
 use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{self, Event};
 use crossterm::queue;
 use crossterm::terminal::{self, Clear, ClearType::All};
 
 use crate::app::App;
-use crate::shared::{ExecutionState, Focus, SharedContext};
+use crate::shared::{Focus, SharedContext};
 use crate::term_utils::RawModeOverride;
 use kilo_rs_backend::{core::Location, editor::Editor};
 
@@ -16,6 +16,11 @@ pub struct AppRunner {
     app: App,
     context: SharedContext,
     stdout: BufWriter<Stdout>,
+}
+
+pub enum ShouldQuit {
+    Yes,
+    No,
 }
 
 impl AppRunner {
@@ -27,7 +32,6 @@ impl AppRunner {
             app: App::new(),
             context: SharedContext {
                 editor: Editor::new(width as usize, height as usize),
-                state: ExecutionState::Initialization,
                 focus: Focus::TextArea,
             },
             stdout: BufWriter::new(io::stdout()),
@@ -41,17 +45,18 @@ impl AppRunner {
     pub fn run(&mut self) -> Result<()> {
         let _override = RawModeOverride::new()?;
 
-        self.context.state = ExecutionState::Running;
-        while let ExecutionState::Running = self.context.state {
+        loop {
             self.render()?;
-            self.process_events()?;
+
+            if let ShouldQuit::Yes = self.process_events()? {
+                break;
+            }
         }
 
-        Ok(())
+        self.terminate()
     }
 
     fn terminate(&mut self) -> Result<()> {
-        self.context.state = ExecutionState::Closing;
         queue!(self.stdout, Clear(All), MoveTo(0, 0))?;
         Ok(())
     }
@@ -73,17 +78,11 @@ impl AppRunner {
         Ok(())
     }
 
-    fn process_events(&mut self) -> Result<()> {
-        use KeyCode::*;
-        use KeyModifiers as KM;
-
-        if let Event::Key(event @ KeyEvent { modifiers, code }) = event::read()? {
-            match (modifiers, code) {
-                (KM::CONTROL, Char('q')) => self.terminate()?,
-                _ => self.app.process_event(&event, &mut self.context)?,
-            };
+    fn process_events(&mut self) -> Result<ShouldQuit> {
+        if let Event::Key(event) = event::read()? {
+            self.app.process_event(&event, &mut self.context)
+        } else {
+            Ok(ShouldQuit::No)
         }
-
-        Ok(())
     }
 }

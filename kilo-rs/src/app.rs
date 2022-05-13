@@ -7,6 +7,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use kilo_rs_backend::core::Location;
 
 use crate::{
+    runner::ShouldQuit,
     shared::{Focus, SharedContext},
     status_bar::StatusBarComponent,
     text_area::TextAreaComponent,
@@ -40,18 +41,23 @@ impl App {
     }
 
     #[allow(unused_imports)]
-    pub fn process_event(&mut self, event: &KeyEvent, context: &mut SharedContext) -> Result<()> {
+    pub fn process_event(
+        &mut self,
+        event: &KeyEvent,
+        context: &mut SharedContext,
+    ) -> Result<ShouldQuit> {
         use KeyCode::*;
         use KeyModifiers as KM;
 
         let &KeyEvent { modifiers, code } = event;
         match (modifiers, code) {
+            (KM::CONTROL, Char('q')) => return Ok(ShouldQuit::Yes),
             _ => match context.focus {
                 Focus::TextArea => self.text_area.process_event(event, context)?,
                 Focus::StatusBar => self.status_bar.process_event(event, context)?,
             },
         }
 
-        Ok(())
+        Ok(ShouldQuit::No)
     }
 }
