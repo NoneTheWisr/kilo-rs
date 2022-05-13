@@ -7,11 +7,13 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use kilo_rs_backend::core::Location;
 
 use crate::{
-    runner::ShouldQuit,
+    runner::{MessageQueue, ShouldQuit},
     shared::{Focus, SharedContext},
     status_bar::StatusBarComponent,
     text_area::TextAreaComponent,
 };
+
+pub enum AppMessage {}
 
 pub struct App {
     text_area: TextAreaComponent,
@@ -24,6 +26,10 @@ impl App {
             text_area: TextAreaComponent::new(),
             status_bar: StatusBarComponent::new(),
         }
+    }
+
+    pub fn update(&mut self, _message: AppMessage, _queue: &mut MessageQueue) -> Result<()> {
+        Ok(())
     }
 
     pub fn render(&self, writer: &mut impl Write, context: &SharedContext) -> Result<()> {
@@ -44,6 +50,7 @@ impl App {
     pub fn process_event(
         &mut self,
         event: &KeyEvent,
+        _queue: &mut MessageQueue,
         context: &mut SharedContext,
     ) -> Result<ShouldQuit> {
         use KeyCode::*;
