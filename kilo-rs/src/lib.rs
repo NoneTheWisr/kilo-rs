@@ -1,5 +1,5 @@
 pub mod app;
-pub mod root;
+pub mod runner;
 pub mod shared;
 pub mod status_bar;
 pub mod term_utils;

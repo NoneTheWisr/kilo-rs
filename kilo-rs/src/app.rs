@@ -1,87 +1,55 @@
-use std::io::{self, BufWriter, Stdout, Write};
+use std::io::Write;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
-use crossterm::cursor::{Hide, MoveTo, Show};
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
-use crossterm::queue;
-use crossterm::terminal::{self, Clear, ClearType::All};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::root::RootComponent;
-use crate::shared::{ExecutionState, Focus, SharedContext};
-use crate::term_utils::RawModeOverride;
-use kilo_rs_backend::{core::Location, editor::Editor};
+use kilo_rs_backend::core::Location;
+
+use crate::{
+    shared::{Focus, SharedContext},
+    status_bar::StatusBarComponent,
+    text_area::TextAreaComponent,
+};
 
 pub struct App {
-    root: RootComponent,
-    context: SharedContext,
-    stdout: BufWriter<Stdout>,
+    text_area: TextAreaComponent,
+    status_bar: StatusBarComponent,
 }
 
 impl App {
-    pub fn new() -> Result<Self> {
-        let (width, height) = terminal::size()?;
-        let height = height.saturating_sub(1);
-
-        Ok(Self {
-            root: RootComponent::new(),
-            context: SharedContext {
-                editor: Editor::new(width as usize, height as usize),
-                state: ExecutionState::Initialization,
-                focus: Focus::TextArea,
-            },
-            stdout: BufWriter::new(io::stdout()),
-        })
-    }
-
-    pub fn open_file(&mut self, file_path: &str) -> Result<()> {
-        self.context.editor.open_file(file_path)
-    }
-
-    pub fn run(&mut self) -> Result<()> {
-        let _override = RawModeOverride::new()?;
-
-        self.context.state = ExecutionState::Running;
-        while let ExecutionState::Running = self.context.state {
-            self.render()?;
-            self.process_events()?;
+    pub fn new() -> Self {
+        Self {
+            text_area: TextAreaComponent::new(),
+            status_bar: StatusBarComponent::new(),
         }
+    }
+
+    pub fn render(&self, writer: &mut impl Write, context: &SharedContext) -> Result<()> {
+        self.text_area.render(writer, context)?;
+        self.status_bar.render(writer, context)?;
 
         Ok(())
     }
 
-    fn terminate(&mut self) -> Result<()> {
-        self.context.state = ExecutionState::Closing;
-        queue!(self.stdout, Clear(All), MoveTo(0, 0))?;
-        Ok(())
+    pub fn cursor(&self, context: &SharedContext) -> Option<Location> {
+        match context.focus {
+            Focus::TextArea => self.text_area.cursor(context),
+            Focus::StatusBar => self.status_bar.cursor(context),
+        }
     }
 
-    fn render(&mut self) -> Result<()> {
-        queue!(self.stdout, Hide)?;
-
-        self.root.render(&mut self.stdout, &self.context)?;
-
-        let Location { line, col } = self
-            .root
-            .cursor(&self.context)
-            .context("failed to get cursor location")?;
-        queue!(self.stdout, MoveTo(col as u16, line as u16))?;
-
-        queue!(self.stdout, Show)?;
-        self.stdout.flush()?;
-
-        Ok(())
-    }
-
-    fn process_events(&mut self) -> Result<()> {
+    #[allow(unused_imports)]
+    pub fn process_event(&mut self, event: &KeyEvent, context: &mut SharedContext) -> Result<()> {
         use KeyCode::*;
         use KeyModifiers as KM;
 
-        if let Event::Key(event @ KeyEvent { modifiers, code }) = event::read()? {
-            match (modifiers, code) {
-                (KM::CONTROL, Char('q')) => self.terminate()?,
-                _ => self.root.process_event(&event, &mut self.context)?,
-            };
+        let &KeyEvent { modifiers, code } = event;
+        match (modifiers, code) {
+            _ => match context.focus {
+                Focus::TextArea => self.text_area.process_event(event, context)?,
+                Focus::StatusBar => self.status_bar.process_event(event, context)?,
+            },
         }
 
         Ok(())
