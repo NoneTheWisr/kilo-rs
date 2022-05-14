@@ -3,13 +3,16 @@ use std::io::Write;
 use anyhow::Result;
 
 use crossterm::cursor::MoveTo;
-use crossterm::event::{KeyCode, KeyModifiers, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crossterm::queue;
 use crossterm::style::Print;
 use crossterm::terminal::{Clear, ClearType::UntilNewLine};
 
 use kilo_rs_backend::core::Location;
+use kilo_rs_backend::editor::Editor;
 
+use crate::editor_controller::EditorControllerMessage;
+use crate::runner::MessageQueue;
 use crate::shared::SharedContext;
 use crate::term_utils::Cursor;
 
@@ -22,17 +25,23 @@ pub struct UpdateMessage {
     pub cursor: kilo_rs_backend::core::Location,
 }
 
-pub struct TextAreaComponent;
+pub struct TextAreaComponent {
+    lines: Vec<String>,
+    cursor: Cursor,
+}
 
 impl TextAreaComponent {
-    pub fn new() -> Self {
-        Self
+    pub fn new(context: &SharedContext) -> Self {
+        Self {
+            lines: get_editor_lines(&context.editor),
+            cursor: get_editor_cursor(&context.editor),
+        }
     }
 
-    pub fn render( &self, writer: &mut impl Write, context: &SharedContext, ) -> Result<()> {
+    pub fn render(&self, writer: &mut impl Write) -> Result<()> {
         queue!(writer, MoveTo(0, 0))?;
 
-        for line in context.editor.get_view_contents() {
+        for line in &self.lines {
             queue!(writer, Print(line))?;
             queue!(writer, Clear(UntilNewLine))?;
             queue!(writer, Print("\r\n"))?;
@@ -41,41 +50,60 @@ impl TextAreaComponent {
         Ok(())
     }
 
-    pub fn cursor(&self, context: &SharedContext) -> Option<Cursor> {
-        let Location { line, col } = context.editor.get_view_cursor();
-        Some(Cursor::new(line as u16, col as u16))
+    pub fn cursor(&self) -> Option<Cursor> {
+        Some(self.cursor)
     }
 
-    #[rustfmt::skip]
-    pub fn process_event(&mut self, event: &KeyEvent, context: &mut SharedContext) -> Result<()> {
+    pub fn update(&mut self, message: TextAreaMessage) -> Result<()> {
+        let TextAreaMessage::Update(message) = message;
+
+        self.lines = message.lines.collect();
+        let Location { line, col } = message.cursor;
+        self.cursor = Cursor::new(line as u16, col as u16);
+
+        Ok(())
+    }
+
+    pub fn process_event(&mut self, event: KeyEvent, queue: &mut MessageQueue) -> Result<()> {
+        use EditorControllerMessage::*;
         use KeyCode::*;
         use KeyModifiers as KM;
 
-        let &KeyEvent{ modifiers, code } = event;
-        match (modifiers, code) {
-            (KM::NONE, Up) => context.editor.move_cursor_up(),
-            (KM::NONE, Down) => context.editor.move_cursor_down(),
-            (KM::NONE, Left) => context.editor.move_cursor_left(),
-            (KM::NONE, Right) => context.editor.move_cursor_right(),
+        let KeyEvent { code, modifiers } = event;
+        let message = match (modifiers, code) {
+            (KM::NONE, Up) => MoveCursorUp,
+            (KM::NONE, Down) => MoveCursorDown,
+            (KM::NONE, Left) => MoveCursorLeft,
+            (KM::NONE, Right) => MoveCursorRight,
 
-            (KM::NONE, Home) => context.editor.move_cursor_to_line_start(),
-            (KM::NONE, End) => context.editor.move_cursor_to_line_end(),
+            (KM::NONE, Home) => MoveCursorToLineStart,
+            (KM::NONE, End) => MoveCursorToLineEnd,
 
-            (KM::NONE, PageUp) => context.editor.move_one_view_up(),
-            (KM::NONE, PageDown) => context.editor.move_one_view_down(),
+            (KM::NONE, PageUp) => MoveOneViewUp,
+            (KM::NONE, PageDown) => MoveOneViewDown,
 
-            (KM::CONTROL, PageUp) => context.editor.move_cursor_to_buffer_top(),
-            (KM::CONTROL, PageDown) => context.editor.move_cursor_to_buffer_bottom(),
+            (KM::CONTROL, PageUp) => MoveCursorToBufferTop,
+            (KM::CONTROL, PageDown) => MoveCursorToBufferBottom,
 
-            (KM::NONE, Backspace) => context.editor.remove_char_behind(),
-            (KM::NONE, Delete) => context.editor.remove_char_in_front(),
+            (KM::NONE, Backspace) => RemoveCharBehind,
+            (KM::NONE, Delete) => RemoveCharInFront,
 
-            (KM::NONE, Char(c)) => context.editor.insert_char(c),
-            (KM::NONE, Enter) => context.editor.insert_line(),
+            (KM::NONE, Char(c)) => InsertChar(c),
+            (KM::NONE, Enter) => InsertLine,
 
-            _ => {}
-        }
-        
+            _ => return Ok(()),
+        };
+
+        queue.push_front(message);
         Ok(())
     }
+}
+
+fn get_editor_lines(editor: &Editor) -> Vec<String> {
+    editor.get_view_contents().collect()
+}
+
+fn get_editor_cursor(editor: &Editor) -> Cursor {
+    let Location { line, col } = editor.get_view_cursor();
+    Cursor::new(line as u16, col as u16)
 }

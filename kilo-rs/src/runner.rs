@@ -91,7 +91,7 @@ impl AppRunner {
 
     fn process_events(&mut self) -> Result<ShouldQuit> {
         if let Event::Key(event) = event::read()? {
-            self.app.process_event(&event, &mut self.queue)
+            self.app.process_event(event, &mut self.queue)
         } else {
             Ok(ShouldQuit::No)
         }

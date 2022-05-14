@@ -44,7 +44,7 @@ impl From<StatusBarMessage> for AppMessage {
 
 pub struct App {
     context: SharedContext,
-    _editor_controller: EditorControllerComponent,
+    editor_controller: EditorControllerComponent,
     text_area: TextAreaComponent,
     status_bar: StatusBarComponent,
 }
@@ -63,8 +63,8 @@ impl App {
             context.editor.open_file(&args[1])?;
         }
 
-        let _editor_controller = EditorControllerComponent::new();
-        let text_area = TextAreaComponent::new();
+        let editor_controller = EditorControllerComponent::new();
+        let text_area = TextAreaComponent::new(&context);
         let status_bar = StatusBarComponent::new(Rectangle {
             top: rect.bottom,
             left: rect.left,
@@ -74,18 +74,29 @@ impl App {
 
         Ok(Self {
             context,
-            _editor_controller,
+            editor_controller,
             text_area,
             status_bar,
         })
     }
 
-    pub fn update(&mut self, _message: AppMessage, _queue: &mut MessageQueue) -> Result<()> {
+    pub fn update(&mut self, message: AppMessage, queue: &mut MessageQueue) -> Result<()> {
+        use AppMessage::*;
+
+        match message {
+            EditorControllerMessage(message) => {
+                self.editor_controller
+                    .update(message, queue, &mut self.context)?
+            }
+            TextAreaMessage(message) => self.text_area.update(message)?,
+            StatusBarMessage(_) => (),
+        }
+
         Ok(())
     }
 
     pub fn render(&self, writer: &mut impl Write) -> Result<()> {
-        self.text_area.render(writer, &self.context)?;
+        self.text_area.render(writer)?;
         self.status_bar.render(writer, &self.context)?;
 
         Ok(())
@@ -93,7 +104,7 @@ impl App {
 
     pub fn cursor(&self) -> Option<Cursor> {
         match self.context.focus {
-            Focus::TextArea => self.text_area.cursor(&self.context),
+            Focus::TextArea => self.text_area.cursor(),
             Focus::StatusBar => self.status_bar.cursor(&self.context),
         }
     }
@@ -101,18 +112,18 @@ impl App {
     #[allow(unused_imports)]
     pub fn process_event(
         &mut self,
-        event: &KeyEvent,
-        _queue: &mut MessageQueue,
+        event: KeyEvent,
+        queue: &mut MessageQueue,
     ) -> Result<ShouldQuit> {
         use KeyCode::*;
         use KeyModifiers as KM;
 
-        let &KeyEvent { modifiers, code } = event;
+        let KeyEvent { modifiers, code } = event;
         match (modifiers, code) {
             (KM::CONTROL, Char('q')) => return Ok(ShouldQuit::Yes),
             _ => match self.context.focus {
-                Focus::TextArea => self.text_area.process_event(event, &mut self.context)?,
-                Focus::StatusBar => self.status_bar.process_event(event, &mut self.context)?,
+                Focus::TextArea => self.text_area.process_event(event, queue)?,
+                Focus::StatusBar => self.status_bar.process_event(&event, &mut self.context)?,
             },
         }
 
