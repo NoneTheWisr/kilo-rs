@@ -20,29 +20,32 @@ pub struct UpdateMessage {
 }
 
 pub struct StatusBarComponent {
+    buffer_name: String,
+    cursor_line: usize,
+    line_count: usize,
     rect: Rectangle,
 }
 
 impl StatusBarComponent {
-    pub fn new(rect: Rectangle) -> Self {
-        Self { rect }
+    pub fn new(rect: Rectangle, context: &SharedContext) -> Self {
+        Self {
+            buffer_name: context
+                .editor
+                .get_file_name()
+                .cloned()
+                .unwrap_or("[Scratch]".into()),
+            cursor_line: context.editor.get_view_cursor().line + 1,
+            line_count: context.editor.get_buffer_line_count(),
+            rect,
+        }
     }
 
     pub fn render(&self, writer: &mut impl Write, context: &SharedContext) -> Result<()> {
-        let file_name = match context.editor.get_file_name() {
-            Some(name) => name,
-            None => "[Scratch]",
-        };
-
-        let left_part = format!("{:.20}", file_name);
-        let right_part = format!(
-            "{}/{}",
-            context.editor.get_buffer_cursor().line + 1,
-            context.editor.get_buffer_line_count()
-        );
+        let left_part = format!("{:.20}", self.buffer_name);
+        let right_part = format!("{}/{}", self.cursor_line, self.line_count,);
         let total_len = left_part.len() + right_part.len();
 
-        let view_width = self.rect.width() as usize;
+        let view_width = context.editor.get_view_width();
         let status_bar = if total_len <= view_width {
             left_part + &" ".repeat(view_width - total_len) + &right_part
         } else {
@@ -51,6 +54,16 @@ impl StatusBarComponent {
 
         queue!(writer, MoveTo(self.rect.left, self.rect.top))?;
         queue!(writer, PrintStyledContent(status_bar.negative()))?;
+        Ok(())
+    }
+
+    pub fn update(&mut self, message: StatusBarMessage) -> Result<()> {
+        let StatusBarMessage::Update(message) = message;
+
+        self.cursor_line = message.cursor_line;
+        self.line_count = message.line_count;
+        self.buffer_name = message.file_name.unwrap_or("[Scratch]".into());
+
         Ok(())
     }
 

@@ -65,12 +65,15 @@ impl App {
 
         let editor_controller = EditorControllerComponent::new();
         let text_area = TextAreaComponent::new(&context);
-        let status_bar = StatusBarComponent::new(Rectangle {
-            top: rect.bottom,
-            left: rect.left,
-            bottom: rect.bottom,
-            right: rect.right,
-        });
+        let status_bar = StatusBarComponent::new(
+            Rectangle {
+                top: rect.bottom,
+                left: rect.left,
+                bottom: rect.bottom,
+                right: rect.right,
+            },
+            &context,
+        );
 
         Ok(Self {
             context,
@@ -89,7 +92,7 @@ impl App {
                     .update(message, queue, &mut self.context)?
             }
             TextAreaMessage(message) => self.text_area.update(message)?,
-            StatusBarMessage(_) => (),
+            StatusBarMessage(message) => self.status_bar.update(message)?,
         }
 
         Ok(())
