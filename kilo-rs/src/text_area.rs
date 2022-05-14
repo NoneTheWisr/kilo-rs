@@ -13,6 +13,15 @@ use kilo_rs_backend::core::Location;
 use crate::shared::SharedContext;
 use crate::term_utils::Cursor;
 
+pub enum TextAreaMessage {
+    Update(UpdateMessage),
+}
+
+pub struct UpdateMessage {
+    pub lines: Box<dyn Iterator<Item = String> + Send>,
+    pub cursor: kilo_rs_backend::core::Location,
+}
+
 pub struct TextAreaComponent;
 
 impl TextAreaComponent {

@@ -9,6 +9,16 @@ use crossterm::style::{PrintStyledContent, Stylize};
 use crate::shared::{Rectangle, SharedContext};
 use crate::term_utils::Cursor;
 
+pub enum StatusBarMessage {
+    Update(UpdateMessage),
+}
+
+pub struct UpdateMessage {
+    pub file_name: Option<String>,
+    pub cursor_line: usize,
+    pub line_count: usize,
+}
+
 pub struct StatusBarComponent {
     rect: Rectangle,
 }

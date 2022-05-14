@@ -10,17 +10,41 @@ use crossterm::{
 use kilo_rs_backend::editor::Editor;
 
 use crate::{
+    editor_controller::{EditorControllerComponent, EditorControllerMessage},
     runner::{MessageQueue, ShouldQuit},
     shared::{Focus, Rectangle, SharedContext},
-    status_bar::StatusBarComponent,
+    status_bar::{StatusBarComponent, StatusBarMessage},
     term_utils::Cursor,
-    text_area::TextAreaComponent,
+    text_area::{TextAreaComponent, TextAreaMessage},
 };
 
-pub enum AppMessage {}
+pub enum AppMessage {
+    EditorControllerMessage(EditorControllerMessage),
+    TextAreaMessage(TextAreaMessage),
+    StatusBarMessage(StatusBarMessage),
+}
+
+impl From<EditorControllerMessage> for AppMessage {
+    fn from(message: EditorControllerMessage) -> Self {
+        Self::EditorControllerMessage(message)
+    }
+}
+
+impl From<TextAreaMessage> for AppMessage {
+    fn from(message: TextAreaMessage) -> Self {
+        Self::TextAreaMessage(message)
+    }
+}
+
+impl From<StatusBarMessage> for AppMessage {
+    fn from(message: StatusBarMessage) -> Self {
+        Self::StatusBarMessage(message)
+    }
+}
 
 pub struct App {
     context: SharedContext,
+    _editor_controller: EditorControllerComponent,
     text_area: TextAreaComponent,
     status_bar: StatusBarComponent,
 }
@@ -39,8 +63,8 @@ impl App {
             context.editor.open_file(&args[1])?;
         }
 
+        let _editor_controller = EditorControllerComponent::new();
         let text_area = TextAreaComponent::new();
-
         let status_bar = StatusBarComponent::new(Rectangle {
             top: rect.bottom,
             left: rect.left,
@@ -50,6 +74,7 @@ impl App {
 
         Ok(Self {
             context,
+            _editor_controller,
             text_area,
             status_bar,
         })

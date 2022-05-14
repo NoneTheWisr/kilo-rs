@@ -1,4 +1,5 @@
 pub mod app;
+pub mod editor_controller;
 pub mod runner;
 pub mod shared;
 pub mod status_bar;

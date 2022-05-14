@@ -22,7 +22,21 @@ pub enum ShouldQuit {
     No,
 }
 
-pub type MessageQueue = VecDeque<AppMessage>;
+pub struct MessageQueue(VecDeque<AppMessage>);
+
+impl MessageQueue {
+    pub fn new() -> Self {
+        Self(VecDeque::new())
+    }
+
+    pub fn pop_front(&mut self) -> Option<AppMessage> {
+        self.0.pop_front()
+    }
+
+    pub fn push_front(&mut self, message: impl Into<AppMessage>) {
+        self.0.push_front(message.into())
+    }
+}
 
 impl AppRunner {
     pub fn new(app: App) -> Self {
