@@ -9,8 +9,7 @@ use crossterm::queue;
 use crossterm::terminal::{Clear, ClearType::All};
 
 use crate::app::{App, AppMessage};
-use crate::term_utils::RawModeOverride;
-use kilo_rs_backend::core::Location;
+use crate::term_utils::{MoveToCursor, RawModeOverride};
 
 pub struct AppRunner {
     app: App,
@@ -67,8 +66,8 @@ impl AppRunner {
 
         self.app.render(&mut self.stdout)?;
 
-        let Location { line, col } = self.app.cursor().context("failed to get cursor location")?;
-        queue!(self.stdout, MoveTo(col as u16, line as u16))?;
+        let cursor = self.app.cursor().context("failed to get cursor location")?;
+        queue!(self.stdout, MoveToCursor(cursor))?;
 
         queue!(self.stdout, Show)?;
         self.stdout.flush()?;

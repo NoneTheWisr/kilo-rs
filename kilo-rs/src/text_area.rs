@@ -11,6 +11,7 @@ use crossterm::terminal::{Clear, ClearType::UntilNewLine};
 use kilo_rs_backend::core::Location;
 
 use crate::shared::SharedContext;
+use crate::term_utils::Cursor;
 
 pub struct TextAreaComponent;
 
@@ -31,8 +32,9 @@ impl TextAreaComponent {
         Ok(())
     }
 
-    pub fn cursor(&self, context: &SharedContext) -> Option<Location> {
-        Some(context.editor.get_view_cursor())
+    pub fn cursor(&self, context: &SharedContext) -> Option<Cursor> {
+        let Location { line, col } = context.editor.get_view_cursor();
+        Some(Cursor::new(line as u16, col as u16))
     }
 
     #[rustfmt::skip]

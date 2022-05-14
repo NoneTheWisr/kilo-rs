@@ -6,9 +6,8 @@ use crossterm::event::KeyEvent;
 use crossterm::queue;
 use crossterm::style::{PrintStyledContent, Stylize};
 
-use kilo_rs_backend::core::Location;
-
 use crate::shared::SharedContext;
+use crate::term_utils::Cursor;
 
 pub struct StatusBarComponent;
 
@@ -44,7 +43,7 @@ impl StatusBarComponent {
         Ok(())
     }
 
-    pub fn cursor(&self, _context: &SharedContext) -> Option<Location> {
+    pub fn cursor(&self, _context: &SharedContext) -> Option<Cursor> {
         None
     }
 

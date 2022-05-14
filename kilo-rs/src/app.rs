@@ -7,12 +7,13 @@ use crossterm::{
     terminal,
 };
 
-use kilo_rs_backend::{core::Location, editor::Editor};
+use kilo_rs_backend::editor::Editor;
 
 use crate::{
     runner::{MessageQueue, ShouldQuit},
     shared::{Focus, SharedContext},
     status_bar::StatusBarComponent,
+    term_utils::Cursor,
     text_area::TextAreaComponent,
 };
 
@@ -56,7 +57,7 @@ impl App {
         Ok(())
     }
 
-    pub fn cursor(&self) -> Option<Location> {
+    pub fn cursor(&self) -> Option<Cursor> {
         match self.context.focus {
             Focus::TextArea => self.text_area.cursor(&self.context),
             Focus::StatusBar => self.status_bar.cursor(&self.context),
