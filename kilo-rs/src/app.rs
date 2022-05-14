@@ -11,7 +11,7 @@ use kilo_rs_backend::editor::Editor;
 
 use crate::{
     runner::{MessageQueue, ShouldQuit},
-    shared::{Focus, SharedContext},
+    shared::{Focus, Rectangle, SharedContext},
     status_bar::StatusBarComponent,
     term_utils::Cursor,
     text_area::TextAreaComponent,
@@ -28,10 +28,10 @@ pub struct App {
 impl App {
     pub fn new(args: Vec<String>) -> Result<Self> {
         let (width, height) = terminal::size()?;
-        let height = height.saturating_sub(1);
+        let rect = Rectangle::new(0, 0, width, height);
 
         let mut context = SharedContext {
-            editor: Editor::new(width as usize, height as usize),
+            editor: Editor::new(width as usize, height.saturating_sub(1) as usize),
             focus: Focus::TextArea,
         };
 
@@ -39,10 +39,19 @@ impl App {
             context.editor.open_file(&args[1])?;
         }
 
+        let text_area = TextAreaComponent::new();
+
+        let status_bar = StatusBarComponent::new(Rectangle {
+            top: rect.bottom,
+            left: rect.left,
+            bottom: rect.bottom,
+            right: rect.right,
+        });
+
         Ok(Self {
             context,
-            status_bar: StatusBarComponent::new(),
-            text_area: TextAreaComponent::new(),
+            text_area,
+            status_bar,
         })
     }
 

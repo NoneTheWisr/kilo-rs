@@ -6,14 +6,16 @@ use crossterm::event::KeyEvent;
 use crossterm::queue;
 use crossterm::style::{PrintStyledContent, Stylize};
 
-use crate::shared::SharedContext;
+use crate::shared::{Rectangle, SharedContext};
 use crate::term_utils::Cursor;
 
-pub struct StatusBarComponent;
+pub struct StatusBarComponent {
+    rect: Rectangle,
+}
 
 impl StatusBarComponent {
-    pub fn new() -> Self {
-        Self
+    pub fn new(rect: Rectangle) -> Self {
+        Self { rect }
     }
 
     pub fn render(&self, writer: &mut impl Write, context: &SharedContext) -> Result<()> {
@@ -30,15 +32,14 @@ impl StatusBarComponent {
         );
         let total_len = left_part.len() + right_part.len();
 
-        let view_width = context.editor.get_view_width();
+        let view_width = self.rect.width() as usize;
         let status_bar = if total_len <= view_width {
             left_part + &" ".repeat(view_width - total_len) + &right_part
         } else {
             format!("{left_part:0$.0$}", view_width)
         };
 
-        let status_line = context.editor.get_view_height();
-        queue!(writer, MoveTo(0, status_line as u16))?;
+        queue!(writer, MoveTo(self.rect.left, self.rect.top))?;
         queue!(writer, PrintStyledContent(status_bar.negative()))?;
         Ok(())
     }
