@@ -49,8 +49,13 @@ pub struct App {
     status_bar: StatusBarComponent,
 }
 
+#[derive(Default)]
+pub struct StartupArgs {
+    pub file: Option<String>,
+}
+
 impl App {
-    pub fn new(args: Vec<String>) -> Result<Self> {
+    pub fn new(args: StartupArgs) -> Result<Self> {
         let (width, height) = terminal::size()?;
         let rect = Rectangle::new(0, 0, width, height);
 
@@ -59,8 +64,8 @@ impl App {
             focus: Focus::TextArea,
         };
 
-        if args.len() == 2 {
-            context.editor.open_file(&args[1])?;
+        if let Some(file_path) = args.file {
+            context.editor.open_file(&file_path)?;
         }
 
         let editor_controller = EditorControllerComponent::new();
