@@ -129,7 +129,7 @@ impl App {
         let KeyEvent { modifiers, code } = event;
         match (modifiers, code) {
             (KM::CONTROL, Char('q')) => return Ok(ShouldQuit::Yes),
-            (mods, Char('s')) if mods == KM::CONTROL => {
+            (mods, Char('s')) if mods == KM::CONTROL | KM::ALT => {
                 self.context.focus = Focus::BottomBar;
                 queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
             }
