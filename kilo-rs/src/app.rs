@@ -10,10 +10,10 @@ use crossterm::{
 use kilo_rs_backend::editor::Editor;
 
 use crate::{
+    bottom_bar::{BottomBarComponent, BottomBarMessage},
     editor_controller::{EditorControllerComponent, EditorControllerMessage},
     runner::{MessageQueue, ShouldQuit},
     shared::{Focus, Rectangle, SharedContext},
-    status_bar::{StatusBarComponent, StatusBarMessage},
     term_utils::Cursor,
     text_area::{TextAreaComponent, TextAreaMessage},
 };
@@ -21,7 +21,7 @@ use crate::{
 pub enum AppMessage {
     EditorControllerMessage(EditorControllerMessage),
     TextAreaMessage(TextAreaMessage),
-    StatusBarMessage(StatusBarMessage),
+    BottomBarMessage(BottomBarMessage),
 }
 
 impl From<EditorControllerMessage> for AppMessage {
@@ -36,9 +36,9 @@ impl From<TextAreaMessage> for AppMessage {
     }
 }
 
-impl From<StatusBarMessage> for AppMessage {
-    fn from(message: StatusBarMessage) -> Self {
-        Self::StatusBarMessage(message)
+impl From<BottomBarMessage> for AppMessage {
+    fn from(message: BottomBarMessage) -> Self {
+        Self::BottomBarMessage(message)
     }
 }
 
@@ -46,7 +46,7 @@ pub struct App {
     context: SharedContext,
     editor_controller: EditorControllerComponent,
     text_area: TextAreaComponent,
-    status_bar: StatusBarComponent,
+    bottom_bar: BottomBarComponent,
 }
 
 #[derive(Default)]
@@ -70,7 +70,7 @@ impl App {
 
         let editor_controller = EditorControllerComponent::new();
         let text_area = TextAreaComponent::new(&context);
-        let status_bar = StatusBarComponent::new(
+        let bottom_bar = BottomBarComponent::new(
             Rectangle {
                 top: rect.bottom,
                 left: rect.left,
@@ -84,7 +84,7 @@ impl App {
             context,
             editor_controller,
             text_area,
-            status_bar,
+            bottom_bar,
         })
     }
 
@@ -97,7 +97,7 @@ impl App {
                     .update(message, queue, &mut self.context)?
             }
             TextAreaMessage(message) => self.text_area.update(message)?,
-            StatusBarMessage(message) => self.status_bar.update(message)?,
+            BottomBarMessage(message) => self.bottom_bar.update(message)?,
         }
 
         Ok(())
@@ -105,7 +105,7 @@ impl App {
 
     pub fn render(&self, writer: &mut impl Write) -> Result<()> {
         self.text_area.render(writer)?;
-        self.status_bar.render(writer, &self.context)?;
+        self.bottom_bar.render(writer, &self.context)?;
 
         Ok(())
     }
@@ -113,7 +113,7 @@ impl App {
     pub fn cursor(&self) -> Option<Cursor> {
         match self.context.focus {
             Focus::TextArea => self.text_area.cursor(),
-            Focus::StatusBar => self.status_bar.cursor(&self.context),
+            Focus::BottomBar => self.bottom_bar.cursor(&self.context),
         }
     }
 
@@ -131,7 +131,7 @@ impl App {
             (KM::CONTROL, Char('q')) => return Ok(ShouldQuit::Yes),
             _ => match self.context.focus {
                 Focus::TextArea => self.text_area.process_event(event, queue)?,
-                Focus::StatusBar => self.status_bar.process_event(&event, &mut self.context)?,
+                Focus::BottomBar => self.bottom_bar.process_event(&event, &mut self.context)?,
             },
         }
 

@@ -7,7 +7,7 @@ pub struct SharedContext {
 
 pub enum Focus {
     TextArea,
-    StatusBar,
+    BottomBar,
 }
 
 pub struct Rectangle {

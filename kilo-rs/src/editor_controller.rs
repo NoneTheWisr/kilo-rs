@@ -1,9 +1,9 @@
 use anyhow::Result;
 
 use crate::{
+    bottom_bar::{self, BottomBarMessage},
     runner::MessageQueue,
     shared::SharedContext,
-    status_bar::{self, StatusBarMessage},
     text_area::{self, TextAreaMessage},
 };
 
@@ -66,14 +66,14 @@ impl EditorControllerComponent {
             cursor: context.editor.get_view_cursor(),
         });
 
-        let update_status_bar_message = StatusBarMessage::Update(status_bar::UpdateMessage {
+        let update_bottom_bar_message = BottomBarMessage::Update(bottom_bar::UpdateMessage {
             file_name: context.editor.get_file_name().cloned(),
             cursor_line: context.editor.get_view_cursor().line.saturating_add(1),
             line_count: context.editor.get_buffer_line_count(),
         });
 
         queue.push_front(update_text_area_message);
-        queue.push_front(update_status_bar_message);
+        queue.push_front(update_bottom_bar_message);
 
         Ok(())
     }
