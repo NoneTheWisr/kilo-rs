@@ -40,16 +40,16 @@ impl BottomBarComponent {
         }
     }
 
-    pub fn render(&self, writer: &mut impl Write, context: &SharedContext) -> Result<()> {
+    pub fn render(&self, writer: &mut impl Write) -> Result<()> {
         let left_part = format!("{:.20}", self.buffer_name);
         let right_part = format!("{}/{}", self.cursor_line, self.line_count,);
         let total_len = left_part.len() + right_part.len();
 
-        let view_width = context.editor.get_view_width();
-        let bottom_bar = if total_len <= view_width {
-            left_part + &" ".repeat(view_width - total_len) + &right_part
+        let width = self.rect.width() as usize;
+        let bottom_bar = if total_len <= width {
+            left_part + &" ".repeat(width - total_len) + &right_part
         } else {
-            format!("{left_part:0$.0$}", view_width)
+            format!("{left_part:0$.0$}", width)
         };
 
         queue!(writer, MoveTo(self.rect.left, self.rect.top))?;
@@ -67,11 +67,11 @@ impl BottomBarComponent {
         Ok(())
     }
 
-    pub fn cursor(&self, _context: &SharedContext) -> Option<Cursor> {
+    pub fn cursor(&self) -> Option<Cursor> {
         None
     }
 
-    pub fn process_event(&mut self, _event: &KeyEvent, _context: &mut SharedContext) -> Result<()> {
+    pub fn process_event(&mut self, _event: &KeyEvent) -> Result<()> {
         Ok(())
     }
 }

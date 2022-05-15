@@ -105,7 +105,7 @@ impl App {
 
     pub fn render(&self, writer: &mut impl Write) -> Result<()> {
         self.text_area.render(writer)?;
-        self.bottom_bar.render(writer, &self.context)?;
+        self.bottom_bar.render(writer)?;
 
         Ok(())
     }
@@ -113,7 +113,7 @@ impl App {
     pub fn cursor(&self) -> Option<Cursor> {
         match self.context.focus {
             Focus::TextArea => self.text_area.cursor(),
-            Focus::BottomBar => self.bottom_bar.cursor(&self.context),
+            Focus::BottomBar => self.bottom_bar.cursor(),
         }
     }
 
@@ -131,7 +131,7 @@ impl App {
             (KM::CONTROL, Char('q')) => return Ok(ShouldQuit::Yes),
             _ => match self.context.focus {
                 Focus::TextArea => self.text_area.process_event(event, queue)?,
-                Focus::BottomBar => self.bottom_bar.process_event(&event, &mut self.context)?,
+                Focus::BottomBar => self.bottom_bar.process_event(&event)?,
             },
         }
 
