@@ -10,7 +10,7 @@ use crossterm::{
 use kilo_rs_backend::editor::Editor;
 
 use crate::{
-    bottom_bar::{BottomBarComponent, BottomBarMessage},
+    bottom_bar::{BottomBarComponent, BottomBarMessage, PromptKind},
     editor_controller::{EditorControllerComponent, EditorControllerMessage},
     runner::{MessageQueue, ShouldQuit},
     shared::{Focus, Rectangle, SharedContext},
@@ -129,9 +129,13 @@ impl App {
         let KeyEvent { modifiers, code } = event;
         match (modifiers, code) {
             (KM::CONTROL, Char('q')) => return Ok(ShouldQuit::Yes),
+            (mods, Char('s')) if mods == KM::CONTROL => {
+                self.context.focus = Focus::BottomBar;
+                queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
+            }
             _ => match self.context.focus {
                 Focus::TextArea => self.text_area.process_event(event, queue)?,
-                Focus::BottomBar => self.bottom_bar.process_event(&event)?,
+                Focus::BottomBar => self.bottom_bar.process_event(event, queue)?,
             },
         }
 
