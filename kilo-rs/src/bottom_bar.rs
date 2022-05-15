@@ -7,6 +7,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crossterm::queue;
 use crossterm::style::{PrintStyledContent, Stylize};
 
+use crate::app::Focus;
 use crate::editor_controller::EditorControllerMessage;
 use crate::runner::MessageQueue;
 use crate::shared::{Rectangle, SharedContext};
@@ -99,7 +100,7 @@ impl BottomBarComponent {
         Ok(())
     }
 
-    pub fn update(&mut self, message: BottomBarMessage) -> Result<()> {
+    pub fn update(&mut self, message: BottomBarMessage, queue: &mut MessageQueue) -> Result<()> {
         match message {
             BottomBarMessage::UpdateStatus(status) => {
                 self.status_info.cursor_line = status.cursor_line;
@@ -108,6 +109,8 @@ impl BottomBarComponent {
             }
             BottomBarMessage::DisplayPrompt(prompt_kind) => {
                 self.prompt_info = Some(PromptInfo::new(prompt_kind));
+
+                queue.push_front(Focus::BottomBar);
             }
         }
 
@@ -129,7 +132,6 @@ impl BottomBarComponent {
 
     pub fn process_event(&mut self, event: KeyEvent, queue: &mut MessageQueue) -> Result<()> {
         if let Some(PromptInfo { input, .. }) = &mut self.prompt_info {
-            use EditorControllerMessage::SaveAs;
             use KeyCode::*;
             use KeyModifiers as KM;
 
@@ -144,7 +146,9 @@ impl BottomBarComponent {
                 }
                 (KM::NONE, Enter) => {
                     let prompt_info = self.prompt_info.take().unwrap();
-                    queue.push_front(SaveAs(prompt_info.input));
+
+                    queue.push_front(Focus::TextArea);
+                    queue.push_front(EditorControllerMessage::SaveAs(prompt_info.input));
                 }
 
                 _ => {}

@@ -4,7 +4,7 @@ use kilo_rs_backend::editor::Editor;
 use crate::{
     bottom_bar::{self, BottomBarMessage},
     runner::MessageQueue,
-    shared::{Focus, SharedContext},
+    shared::SharedContext,
     text_area::{self, TextAreaMessage},
 };
 
@@ -49,7 +49,6 @@ impl EditorControllerComponent {
 
         if let SaveAs(path) = message {
             context.editor.save_file_as(&path).unwrap();
-            context.focus = Focus::TextArea;
 
             queue.push_front(make_update_bottom_bar_message(&context.editor));
         } else {

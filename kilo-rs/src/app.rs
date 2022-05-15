@@ -13,7 +13,7 @@ use crate::{
     bottom_bar::{BottomBarComponent, BottomBarMessage, PromptKind},
     editor_controller::{EditorControllerComponent, EditorControllerMessage},
     runner::{MessageQueue, ShouldQuit},
-    shared::{Focus, Rectangle, SharedContext},
+    shared::{Rectangle, SharedContext},
     term_utils::Cursor,
     text_area::{TextAreaComponent, TextAreaMessage},
 };
@@ -22,6 +22,7 @@ pub enum AppMessage {
     EditorControllerMessage(EditorControllerMessage),
     TextAreaMessage(TextAreaMessage),
     BottomBarMessage(BottomBarMessage),
+    SwitchFocus(Focus),
 }
 
 impl From<EditorControllerMessage> for AppMessage {
@@ -42,11 +43,23 @@ impl From<BottomBarMessage> for AppMessage {
     }
 }
 
+impl From<Focus> for AppMessage {
+    fn from(focus: Focus) -> Self {
+        Self::SwitchFocus(focus)
+    }
+}
+
 pub struct App {
     context: SharedContext,
     editor_controller: EditorControllerComponent,
     text_area: TextAreaComponent,
     bottom_bar: BottomBarComponent,
+    focus: Focus,
+}
+
+pub enum Focus {
+    TextArea,
+    BottomBar,
 }
 
 #[derive(Default)]
@@ -61,7 +74,6 @@ impl App {
 
         let mut context = SharedContext {
             editor: Editor::new(width as usize, height.saturating_sub(1) as usize),
-            focus: Focus::TextArea,
         };
 
         if let Some(file_path) = args.file {
@@ -85,6 +97,7 @@ impl App {
             editor_controller,
             text_area,
             bottom_bar,
+            focus: Focus::TextArea,
         })
     }
 
@@ -97,7 +110,8 @@ impl App {
                     .update(message, queue, &mut self.context)?
             }
             TextAreaMessage(message) => self.text_area.update(message)?,
-            BottomBarMessage(message) => self.bottom_bar.update(message)?,
+            BottomBarMessage(message) => self.bottom_bar.update(message, queue)?,
+            SwitchFocus(focus) => self.focus = focus,
         }
 
         Ok(())
@@ -111,7 +125,7 @@ impl App {
     }
 
     pub fn cursor(&self) -> Option<Cursor> {
-        match self.context.focus {
+        match self.focus {
             Focus::TextArea => self.text_area.cursor(),
             Focus::BottomBar => self.bottom_bar.cursor(),
         }
@@ -130,10 +144,9 @@ impl App {
         match (modifiers, code) {
             (KM::CONTROL, Char('q')) => return Ok(ShouldQuit::Yes),
             (mods, Char('s')) if mods == KM::CONTROL | KM::ALT => {
-                self.context.focus = Focus::BottomBar;
                 queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
             }
-            _ => match self.context.focus {
+            _ => match self.focus {
                 Focus::TextArea => self.text_area.process_event(event, queue)?,
                 Focus::BottomBar => self.bottom_bar.process_event(event, queue)?,
             },
