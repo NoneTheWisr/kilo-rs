@@ -1,4 +1,5 @@
 use anyhow::Result;
+use kilo_rs_backend::editor::Editor;
 
 use crate::{
     bottom_bar::{self, BottomBarMessage},
@@ -49,6 +50,8 @@ impl EditorControllerComponent {
         if let SaveAs(path) = message {
             context.editor.save_file_as(&path).unwrap();
             context.focus = Focus::TextArea;
+
+            queue.push_front(make_update_bottom_bar_message(&context.editor));
         } else {
             match message {
                 MoveCursorUp => context.editor.move_cursor_up(),
@@ -68,22 +71,25 @@ impl EditorControllerComponent {
                 SaveAs(_) => unreachable!(),
             };
 
-            let update_text_area_message = TextAreaMessage::Update(text_area::UpdateMessage {
-                lines: Box::new(context.editor.get_view_contents()),
-                cursor: context.editor.get_view_cursor(),
-            });
-
-            let update_bottom_bar_message =
-                BottomBarMessage::UpdateStatus(bottom_bar::StatusUpdate {
-                    file_name: context.editor.get_file_name().cloned(),
-                    cursor_line: context.editor.get_view_cursor().line.saturating_add(1),
-                    line_count: context.editor.get_buffer_line_count(),
-                });
-
-            queue.push_front(update_text_area_message);
-            queue.push_front(update_bottom_bar_message);
+            queue.push_front(make_update_text_area_message(&context.editor));
+            queue.push_front(make_update_bottom_bar_message(&context.editor));
         }
 
         Ok(())
     }
+}
+
+fn make_update_bottom_bar_message(editor: &Editor) -> BottomBarMessage {
+    BottomBarMessage::UpdateStatus(bottom_bar::StatusUpdate {
+        file_name: editor.get_file_name().cloned(),
+        cursor_line: editor.get_view_cursor().line.saturating_add(1),
+        line_count: editor.get_buffer_line_count(),
+    })
+}
+
+fn make_update_text_area_message(editor: &Editor) -> TextAreaMessage {
+    TextAreaMessage::Update(text_area::UpdateMessage {
+        lines: Box::new(editor.get_view_contents()),
+        cursor: editor.get_view_cursor(),
+    })
 }
