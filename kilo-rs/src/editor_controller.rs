@@ -92,6 +92,7 @@ impl EditorControllerComponent {
 fn make_update_bottom_bar_message(editor: &Editor) -> BottomBarMessage {
     BottomBarMessage::UpdateStatus(bottom_bar::StatusUpdate {
         file_name: editor.get_file_name().cloned(),
+        dirty: editor.is_buffer_dirty(),
         cursor_line: editor.get_view_cursor().line.saturating_add(1),
         line_count: editor.get_buffer_line_count(),
     })

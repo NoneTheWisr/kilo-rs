@@ -21,6 +21,7 @@ pub enum BottomBarMessage {
 
 pub struct StatusUpdate {
     pub file_name: Option<String>,
+    pub dirty: bool,
     pub cursor_line: usize,
     pub line_count: usize,
 }
@@ -31,6 +32,7 @@ pub enum PromptKind {
 
 pub enum NotificationKind {
     SaveSuccess,
+    QuitWithUnsavedChanges,
 }
 
 pub struct BottomBarComponent {
@@ -42,6 +44,7 @@ pub struct BottomBarComponent {
 
 struct StatusInfo {
     buffer_name: String,
+    dirty: bool,
     cursor_line: usize,
     line_count: usize,
 }
@@ -67,6 +70,7 @@ impl BottomBarComponent {
                     .get_file_name()
                     .cloned()
                     .unwrap_or("[Scratch]".into()),
+                dirty: context.editor.is_buffer_dirty(),
                 cursor_line: context.editor.get_view_cursor().line + 1,
                 line_count: context.editor.get_buffer_line_count(),
             },
@@ -92,7 +96,8 @@ impl BottomBarComponent {
             queue!(writer, MoveTo(self.rect.left, self.rect.top))?;
             queue!(writer, PrintStyledContent(status_bar.negative()))?;
         } else {
-            let left_part = format!("{:.20}", self.status_info.buffer_name);
+            let dirty = if self.status_info.dirty { "[+]" } else { "" };
+            let left_part = format!("{:.20}{dirty}", self.status_info.buffer_name,);
             let right_part = format!(
                 "{}/{}",
                 self.status_info.cursor_line, self.status_info.line_count,
@@ -127,6 +132,7 @@ impl BottomBarComponent {
                 self.status_info.cursor_line = status.cursor_line;
                 self.status_info.line_count = status.line_count;
                 self.status_info.buffer_name = status.file_name.unwrap_or("[Scratch]".into());
+                self.status_info.dirty = status.dirty;
             }
             DisplayPrompt(prompt_kind) => {
                 self.prompt_info = Some(PromptInfo::new(prompt_kind));
@@ -186,7 +192,7 @@ impl PromptInfo {
     fn new(prompt_kind: PromptKind) -> Self {
         Self {
             message: match prompt_kind {
-                PromptKind::SaveAs => "[Save As] Enter file path:".into(),
+                PromptKind::SaveAs => SAVE_AS_MESSAGE.into(),
             },
             input: String::new(),
         }
@@ -195,11 +201,19 @@ impl PromptInfo {
 
 impl NotificationInfo {
     fn new(notification_kind: NotificationKind) -> Self {
+        use NotificationKind::*;
         Self {
             message: match notification_kind {
-                NotificationKind::SaveSuccess => "[Success] The buffer has been saved".into(),
+                SaveSuccess => SAVE_SUCCESS_MESSAGE.into(),
+                QuitWithUnsavedChanges => QUIT_WITH_UNSAVED_CHANGES_MESSAGE.into(),
             },
             start: Instant::now(),
         }
     }
 }
+
+const SAVE_AS_MESSAGE: &str = "[Save As] Enter file path:";
+
+const SAVE_SUCCESS_MESSAGE: &str = "[Success] The buffer has been saved";
+const QUIT_WITH_UNSAVED_CHANGES_MESSAGE: &str =
+    "[Warning] The buffer has unsaved changes. Press Ctrl+Alt+Q to force quit";

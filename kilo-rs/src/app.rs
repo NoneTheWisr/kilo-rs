@@ -10,7 +10,7 @@ use crossterm::{
 use kilo_rs_backend::editor::Editor;
 
 use crate::{
-    bottom_bar::{BottomBarComponent, BottomBarMessage, PromptKind},
+    bottom_bar::{BottomBarComponent, BottomBarMessage, NotificationKind, PromptKind},
     editor_controller::{EditorControllerComponent, EditorControllerMessage},
     runner::{MessageQueue, ShouldQuit},
     shared::{Rectangle, SharedContext},
@@ -142,7 +142,18 @@ impl App {
 
         let KeyEvent { modifiers, code } = event;
         match (modifiers, code) {
-            (KM::CONTROL, Char('q')) => return Ok(ShouldQuit::Yes),
+            (KM::CONTROL, Char('q')) => {
+                if self.context.editor.is_buffer_dirty() {
+                    queue.push_front(BottomBarMessage::DisplayNotification(
+                        NotificationKind::QuitWithUnsavedChanges,
+                    ))
+                } else {
+                    return Ok(ShouldQuit::Yes);
+                }
+            }
+            (mods, Char('q')) if mods == KM::CONTROL | KM::ALT => {
+                return Ok(ShouldQuit::Yes);
+            }
 
             (KM::CONTROL, Char('s')) => queue.push_front(EditorControllerMessage::Save),
             (mods, Char('s')) if mods == KM::CONTROL | KM::ALT => {

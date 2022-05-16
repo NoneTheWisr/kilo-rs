@@ -68,6 +68,10 @@ impl Editor {
         self.buffer.file_path()
     }
 
+    pub fn is_buffer_dirty(&self) -> bool {
+        self.buffer.is_dirty()
+    }
+
     pub fn open_file(&mut self, file_path: &str) -> Result<()> {
         self.buffer = Buffer::from_file(file_path)?;
         self.rendered_buffer = RenderedBuffer::from(&self.buffer);
