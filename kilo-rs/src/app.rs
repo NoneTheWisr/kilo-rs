@@ -10,7 +10,7 @@ use crossterm::{
 use kilo_rs_backend::editor::Editor;
 
 use crate::{
-    bottom_bar::{BottomBarComponent, BottomBarMessage, NotificationKind, PromptKind},
+    bottom_bar::{BottomBarComponent, BottomBarMessage, PromptKind},
     editor_controller::{EditorControllerComponent, EditorControllerMessage},
     runner::{MessageQueue, ShouldQuit},
     shared::{Rectangle, SharedContext},
@@ -23,6 +23,7 @@ pub enum AppMessage {
     TextAreaMessage(TextAreaMessage),
     BottomBarMessage(BottomBarMessage),
     SwitchFocus(Focus),
+    Quit,
 }
 
 impl From<EditorControllerMessage> for AppMessage {
@@ -101,7 +102,7 @@ impl App {
         })
     }
 
-    pub fn update(&mut self, message: AppMessage, queue: &mut MessageQueue) -> Result<()> {
+    pub fn update(&mut self, message: AppMessage, queue: &mut MessageQueue) -> Result<ShouldQuit> {
         use AppMessage::*;
 
         match message {
@@ -112,9 +113,10 @@ impl App {
             TextAreaMessage(message) => self.text_area.update(message)?,
             BottomBarMessage(message) => self.bottom_bar.update(message, queue)?,
             SwitchFocus(focus) => self.focus = focus,
+            Quit => return Ok(ShouldQuit::Yes),
         }
 
-        Ok(())
+        Ok(ShouldQuit::No)
     }
 
     pub fn render(&self, writer: &mut impl Write) -> Result<()> {
@@ -144,9 +146,7 @@ impl App {
         match (modifiers, code) {
             (KM::CONTROL, Char('q')) => {
                 if self.context.editor.is_buffer_dirty() {
-                    queue.push_front(BottomBarMessage::DisplayNotification(
-                        NotificationKind::QuitWithUnsavedChanges,
-                    ))
+                    queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::ConfirmQuit))
                 } else {
                     return Ok(ShouldQuit::Yes);
                 }

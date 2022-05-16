@@ -56,7 +56,9 @@ impl AppRunner {
             if let ShouldQuit::Yes = self.process_events()? {
                 break;
             }
-            self.update()?;
+            if let ShouldQuit::Yes = self.update()? {
+                break;
+            }
             self.render()?;
         }
 
@@ -68,11 +70,13 @@ impl AppRunner {
         Ok(())
     }
 
-    fn update(&mut self) -> Result<()> {
+    fn update(&mut self) -> Result<ShouldQuit> {
         while let Some(message) = self.queue.pop_front() {
-            self.app.update(message, &mut self.queue)?;
+            if let ShouldQuit::Yes = self.app.update(message, &mut self.queue)? {
+                return Ok(ShouldQuit::Yes);
+            }
         }
-        Ok(())
+        Ok(ShouldQuit::No)
     }
 
     fn render(&mut self) -> Result<()> {

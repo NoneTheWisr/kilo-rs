@@ -7,7 +7,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crossterm::queue;
 use crossterm::style::{PrintStyledContent, Stylize};
 
-use crate::app::Focus;
+use crate::app::{AppMessage, Focus};
 use crate::editor_controller::EditorControllerMessage;
 use crate::runner::MessageQueue;
 use crate::shared::{Rectangle, SharedContext};
@@ -28,11 +28,11 @@ pub struct StatusUpdate {
 
 pub enum PromptKind {
     SaveAs,
+    ConfirmQuit,
 }
 
 pub enum NotificationKind {
     SaveSuccess,
-    QuitWithUnsavedChanges,
 }
 
 pub struct BottomBarComponent {
@@ -50,6 +50,7 @@ struct StatusInfo {
 }
 
 struct PromptInfo {
+    kind: PromptKind,
     message: String,
     input: String,
 }
@@ -160,28 +161,40 @@ impl BottomBarComponent {
     }
 
     pub fn process_event(&mut self, event: KeyEvent, queue: &mut MessageQueue) -> Result<()> {
-        if let Some(PromptInfo { input, .. }) = &mut self.prompt_info {
+        if let Some(PromptInfo { kind, input, .. }) = &mut self.prompt_info {
             use KeyCode::*;
             use KeyModifiers as KM;
 
             let KeyEvent { code, modifiers } = event;
-            match (modifiers, code) {
-                (KM::NONE, Char(c)) => {
-                    input.push(c);
-                }
+            match kind {
+                PromptKind::SaveAs => match (modifiers, code) {
+                    (KM::NONE, Char(c)) => {
+                        input.push(c);
+                    }
 
-                (KM::NONE, Backspace) => {
-                    input.pop();
-                }
-                (KM::NONE, Enter) => {
-                    let prompt_info = self.prompt_info.take().unwrap();
+                    (KM::NONE, Backspace) => {
+                        input.pop();
+                    }
+                    (KM::NONE, Enter) => {
+                        let prompt_info = self.prompt_info.take().unwrap();
 
-                    queue.push_front(Focus::TextArea);
-                    queue.push_front(EditorControllerMessage::SaveAs(prompt_info.input));
-                }
+                        queue.push_front(Focus::TextArea);
+                        queue.push_front(EditorControllerMessage::SaveAs(prompt_info.input));
+                    }
 
-                _ => {}
-            };
+                    _ => {}
+                },
+                PromptKind::ConfirmQuit => match (modifiers, code) {
+                    (KM::NONE | KM::SHIFT, Char('y')) => {
+                        queue.push_front(AppMessage::Quit);
+                    }
+                    (KM::NONE | KM::SHIFT, Char('n')) | (_, Esc) => {
+                        self.prompt_info = None;
+                        queue.push_front(Focus::TextArea);
+                    }
+                    _ => {}
+                },
+            }
         }
 
         Ok(())
@@ -191,9 +204,11 @@ impl BottomBarComponent {
 impl PromptInfo {
     fn new(prompt_kind: PromptKind) -> Self {
         Self {
-            message: match prompt_kind {
+            message: match &prompt_kind {
                 PromptKind::SaveAs => SAVE_AS_MESSAGE.into(),
+                PromptKind::ConfirmQuit => CONFIRM_QUIT_MESSAGE.into(),
             },
+            kind: prompt_kind,
             input: String::new(),
         }
     }
@@ -205,7 +220,6 @@ impl NotificationInfo {
         Self {
             message: match notification_kind {
                 SaveSuccess => SAVE_SUCCESS_MESSAGE.into(),
-                QuitWithUnsavedChanges => QUIT_WITH_UNSAVED_CHANGES_MESSAGE.into(),
             },
             start: Instant::now(),
         }
@@ -213,7 +227,7 @@ impl NotificationInfo {
 }
 
 const SAVE_AS_MESSAGE: &str = "[Save As] Enter file path:";
+const CONFIRM_QUIT_MESSAGE: &str =
+    "[Warning] The buffer has unsaved changes. Are you sure you want to quit [y\\n]?";
 
 const SAVE_SUCCESS_MESSAGE: &str = "[Success] The buffer has been saved";
-const QUIT_WITH_UNSAVED_CHANGES_MESSAGE: &str =
-    "[Warning] The buffer has unsaved changes. Press Ctrl+Alt+Q to force quit";
