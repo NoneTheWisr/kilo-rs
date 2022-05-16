@@ -16,6 +16,7 @@ use crate::term_utils::Cursor;
 pub enum BottomBarMessage {
     UpdateStatus(StatusUpdate),
     DisplayPrompt(PromptKind),
+    DisplayNotification(NotificationKind),
 }
 
 pub struct StatusUpdate {
@@ -26,6 +27,10 @@ pub struct StatusUpdate {
 
 pub enum PromptKind {
     SaveAs,
+}
+
+pub enum NotificationKind {
+    SaveSuccess,
 }
 
 pub struct BottomBarComponent {
@@ -50,6 +55,8 @@ struct NotificationInfo {
     message: String,
     start: Instant,
 }
+
+const NOTIFICATION_DURATION: f32 = 1.0;
 
 impl BottomBarComponent {
     pub fn new(rect: Rectangle, context: &SharedContext) -> Self {
@@ -78,6 +85,12 @@ impl BottomBarComponent {
 
             queue!(writer, MoveTo(self.rect.left, self.rect.top))?;
             queue!(writer, PrintStyledContent(status_bar.negative()))?;
+        } else if let Some(NotificationInfo { message, .. }) = &self.notification_info {
+            let width = self.rect.width() as usize;
+            let status_bar = format!("{message:0$.0$}", width);
+
+            queue!(writer, MoveTo(self.rect.left, self.rect.top))?;
+            queue!(writer, PrintStyledContent(status_bar.negative()))?;
         } else {
             let left_part = format!("{:.20}", self.status_info.buffer_name);
             let right_part = format!(
@@ -101,16 +114,26 @@ impl BottomBarComponent {
     }
 
     pub fn update(&mut self, message: BottomBarMessage, queue: &mut MessageQueue) -> Result<()> {
+        use BottomBarMessage::*;
+
+        if let Some(NotificationInfo { start, .. }) = &self.notification_info {
+            if start.elapsed().as_secs_f32() > NOTIFICATION_DURATION {
+                self.notification_info = None;
+            }
+        }
+
         match message {
-            BottomBarMessage::UpdateStatus(status) => {
+            UpdateStatus(status) => {
                 self.status_info.cursor_line = status.cursor_line;
                 self.status_info.line_count = status.line_count;
                 self.status_info.buffer_name = status.file_name.unwrap_or("[Scratch]".into());
             }
-            BottomBarMessage::DisplayPrompt(prompt_kind) => {
+            DisplayPrompt(prompt_kind) => {
                 self.prompt_info = Some(PromptInfo::new(prompt_kind));
-
                 queue.push_front(Focus::BottomBar);
+            }
+            DisplayNotification(notification_kind) => {
+                self.notification_info = Some(NotificationInfo::new(notification_kind));
             }
         }
 
@@ -161,11 +184,22 @@ impl BottomBarComponent {
 
 impl PromptInfo {
     fn new(prompt_kind: PromptKind) -> Self {
-        match prompt_kind {
-            PromptKind::SaveAs => Self {
-                message: String::from("[Save As] Enter file path:"),
-                input: String::new(),
+        Self {
+            message: match prompt_kind {
+                PromptKind::SaveAs => "[Save As] Enter file path:".into(),
             },
+            input: String::new(),
+        }
+    }
+}
+
+impl NotificationInfo {
+    fn new(notification_kind: NotificationKind) -> Self {
+        Self {
+            message: match notification_kind {
+                NotificationKind::SaveSuccess => "[Success] The buffer has been saved".into(),
+            },
+            start: Instant::now(),
         }
     }
 }

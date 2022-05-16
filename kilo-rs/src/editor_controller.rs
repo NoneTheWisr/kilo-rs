@@ -2,7 +2,7 @@ use anyhow::Result;
 use kilo_rs_backend::editor::Editor;
 
 use crate::{
-    bottom_bar::{self, BottomBarMessage},
+    bottom_bar::{self, BottomBarMessage, NotificationKind},
     runner::MessageQueue,
     shared::SharedContext,
     text_area::{self, TextAreaMessage},
@@ -50,6 +50,7 @@ impl EditorControllerComponent {
         if let SaveAs(path) = message {
             context.editor.save_file_as(&path).unwrap();
 
+            queue.push_front(SAVE_NOTIFICATION_MESSAGE);
             queue.push_front(make_update_bottom_bar_message(&context.editor));
         } else {
             match message {
@@ -92,3 +93,6 @@ fn make_update_text_area_message(editor: &Editor) -> TextAreaMessage {
         cursor: editor.get_view_cursor(),
     })
 }
+
+const SAVE_NOTIFICATION_MESSAGE: BottomBarMessage =
+    BottomBarMessage::DisplayNotification(NotificationKind::SaveSuccess);
