@@ -57,7 +57,7 @@ impl EditorControllerComponent {
                 queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
             }
         } else if let SaveAs(path) = message {
-            context.editor.save_file_as(&path).unwrap();
+            context.editor.save_file_as(&path)?;
 
             queue.push_front(SAVE_NOTIFICATION_MESSAGE);
             queue.push_front(make_update_bottom_bar_message(&context.editor));
