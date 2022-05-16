@@ -89,6 +89,8 @@ impl TextAreaComponent {
             (KM::NONE, Delete) => RemoveCharInFront,
 
             (KM::NONE, Char(c)) => InsertChar(c),
+            (KM::SHIFT, Char(c)) => InsertChar(c.to_ascii_uppercase()),
+
             (KM::NONE, Enter) => InsertLine,
 
             _ => return Ok(()),
