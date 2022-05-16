@@ -143,9 +143,12 @@ impl App {
         let KeyEvent { modifiers, code } = event;
         match (modifiers, code) {
             (KM::CONTROL, Char('q')) => return Ok(ShouldQuit::Yes),
+
+            (KM::CONTROL, Char('s')) => queue.push_front(EditorControllerMessage::Save),
             (mods, Char('s')) if mods == KM::CONTROL | KM::ALT => {
                 queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
             }
+
             _ => match self.focus {
                 Focus::TextArea => self.text_area.process_event(event, queue)?,
                 Focus::BottomBar => self.bottom_bar.process_event(event, queue)?,

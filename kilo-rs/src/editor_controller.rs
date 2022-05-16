@@ -2,7 +2,7 @@ use anyhow::Result;
 use kilo_rs_backend::editor::Editor;
 
 use crate::{
-    bottom_bar::{self, BottomBarMessage, NotificationKind},
+    bottom_bar::{self, BottomBarMessage, NotificationKind, PromptKind},
     runner::MessageQueue,
     shared::SharedContext,
     text_area::{self, TextAreaMessage},
@@ -31,6 +31,7 @@ pub enum EditorControllerMessage {
     InsertChar(char),
     InsertLine,
 
+    Save,
     SaveAs(String),
 }
 
@@ -47,7 +48,15 @@ impl EditorControllerComponent {
     ) -> Result<()> {
         use EditorControllerMessage::*;
 
-        if let SaveAs(path) = message {
+        if let Save = message {
+            if context.editor.get_file_name().is_some() {
+                context.editor.save_file()?;
+
+                queue.push_front(SAVE_NOTIFICATION_MESSAGE);
+            } else {
+                queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
+            }
+        } else if let SaveAs(path) = message {
             context.editor.save_file_as(&path).unwrap();
 
             queue.push_front(SAVE_NOTIFICATION_MESSAGE);
@@ -69,6 +78,7 @@ impl EditorControllerComponent {
                 InsertChar(c) => context.editor.insert_char(c.clone()),
                 InsertLine => context.editor.insert_line(),
                 SaveAs(_) => unreachable!(),
+                Save => unreachable!(),
             };
 
             queue.push_front(make_update_text_area_message(&context.editor));
