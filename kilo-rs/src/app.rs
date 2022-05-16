@@ -155,6 +155,9 @@ impl App {
                 return Ok(ShouldQuit::Yes);
             }
 
+            (KM::CONTROL, Char('o')) => {
+                queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::Open))
+            }
             (KM::CONTROL, Char('s')) => queue.push_front(EditorControllerMessage::Save),
             (mods, Char('s')) if mods == KM::CONTROL | KM::ALT => {
                 queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));

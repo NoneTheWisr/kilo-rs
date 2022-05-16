@@ -28,11 +28,13 @@ pub struct StatusUpdate {
 
 pub enum PromptKind {
     SaveAs,
+    Open,
     ConfirmQuit,
 }
 
 pub enum NotificationKind {
     SaveSuccess,
+    OpenFailure,
 }
 
 pub struct BottomBarComponent {
@@ -164,10 +166,11 @@ impl BottomBarComponent {
         if let Some(PromptInfo { kind, input, .. }) = &mut self.prompt_info {
             use KeyCode::*;
             use KeyModifiers as KM;
+            use PromptKind::*;
 
             let KeyEvent { code, modifiers } = event;
             match kind {
-                PromptKind::SaveAs => match (modifiers, code) {
+                PromptKind::SaveAs | PromptKind::Open => match (modifiers, code) {
                     (KM::NONE, Char(c)) => {
                         input.push(c);
                     }
@@ -179,12 +182,17 @@ impl BottomBarComponent {
                         let prompt_info = self.prompt_info.take().unwrap();
 
                         queue.push_front(Focus::TextArea);
-                        queue.push_front(EditorControllerMessage::SaveAs(prompt_info.input));
+                        let editor_message = match prompt_info.kind {
+                            SaveAs => EditorControllerMessage::SaveAs(prompt_info.input),
+                            Open => EditorControllerMessage::Open(prompt_info.input),
+                            _ => unreachable!(),
+                        };
+                        queue.push_front(editor_message);
                     }
 
                     _ => {}
                 },
-                PromptKind::ConfirmQuit => match (modifiers, code) {
+                ConfirmQuit => match (modifiers, code) {
                     (KM::NONE | KM::SHIFT, Char('y')) => {
                         queue.push_front(AppMessage::Quit);
                     }
@@ -207,6 +215,7 @@ impl PromptInfo {
             message: match &prompt_kind {
                 PromptKind::SaveAs => SAVE_AS_MESSAGE.into(),
                 PromptKind::ConfirmQuit => CONFIRM_QUIT_MESSAGE.into(),
+                PromptKind::Open => OPEN_MESSAGE.into(),
             },
             kind: prompt_kind,
             input: String::new(),
@@ -220,6 +229,7 @@ impl NotificationInfo {
         Self {
             message: match notification_kind {
                 SaveSuccess => SAVE_SUCCESS_MESSAGE.into(),
+                OpenFailure => OPEN_FAILURE_MESSAGE.into(),
             },
             start: Instant::now(),
         }
@@ -227,7 +237,9 @@ impl NotificationInfo {
 }
 
 const SAVE_AS_MESSAGE: &str = "[Save As] Enter file path:";
+const OPEN_MESSAGE: &str = "[Open] Enter file path:";
 const CONFIRM_QUIT_MESSAGE: &str =
     "[Warning] The buffer has unsaved changes. Are you sure you want to quit [y\\n]?";
 
 const SAVE_SUCCESS_MESSAGE: &str = "[Success] The buffer has been saved";
+const OPEN_FAILURE_MESSAGE: &str = "[Fail] Couldn't open the file";

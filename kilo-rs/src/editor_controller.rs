@@ -33,6 +33,8 @@ pub enum EditorControllerMessage {
 
     Save,
     SaveAs(String),
+
+    Open(String),
 }
 
 impl EditorControllerComponent {
@@ -52,15 +54,22 @@ impl EditorControllerComponent {
             if context.editor.get_file_name().is_some() {
                 context.editor.save_file()?;
 
-                queue.push_front(SAVE_NOTIFICATION_MESSAGE);
+                queue.push_front(SAVE_NOTIFICATION);
             } else {
                 queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
             }
         } else if let SaveAs(path) = message {
             context.editor.save_file_as(&path)?;
 
-            queue.push_front(SAVE_NOTIFICATION_MESSAGE);
+            queue.push_front(SAVE_NOTIFICATION);
             queue.push_front(make_update_bottom_bar_message(&context.editor));
+        } else if let Open(path) = message {
+            if let Err(_) = context.editor.open_file(&path) {
+                queue.push_front(OPEN_FAILURE_NOTIFICATION);
+            } else {
+                queue.push_front(make_update_text_area_message(&context.editor));
+                queue.push_front(make_update_bottom_bar_message(&context.editor));
+            }
         } else {
             match message {
                 MoveCursorUp => context.editor.move_cursor_up(),
@@ -79,6 +88,7 @@ impl EditorControllerComponent {
                 InsertLine => context.editor.insert_line(),
                 SaveAs(_) => unreachable!(),
                 Save => unreachable!(),
+                Open(_) => unreachable!(),
             };
 
             queue.push_front(make_update_text_area_message(&context.editor));
@@ -105,5 +115,7 @@ fn make_update_text_area_message(editor: &Editor) -> TextAreaMessage {
     })
 }
 
-const SAVE_NOTIFICATION_MESSAGE: BottomBarMessage =
+const SAVE_NOTIFICATION: BottomBarMessage =
     BottomBarMessage::DisplayNotification(NotificationKind::SaveSuccess);
+const OPEN_FAILURE_NOTIFICATION: BottomBarMessage =
+    BottomBarMessage::DisplayNotification(NotificationKind::OpenFailure);
