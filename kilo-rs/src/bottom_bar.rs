@@ -193,10 +193,10 @@ impl BottomBarComponent {
                     _ => {}
                 },
                 ConfirmQuit => match (modifiers, code) {
-                    (KM::NONE | KM::SHIFT, Char('y')) => {
+                    (_, Char('y') | Char('q')) => {
                         queue.push_front(AppMessage::Quit);
                     }
-                    (KM::NONE | KM::SHIFT, Char('n')) | (_, Esc) => {
+                    (_, Char('n') | Esc) => {
                         self.prompt_info = None;
                         queue.push_front(Focus::TextArea);
                     }
@@ -239,7 +239,7 @@ impl NotificationInfo {
 const SAVE_AS_MESSAGE: &str = "[Save As] Enter file path:";
 const OPEN_MESSAGE: &str = "[Open] Enter file path:";
 const CONFIRM_QUIT_MESSAGE: &str =
-    "[Warning] The buffer has unsaved changes. Are you sure you want to quit [y\\n]?";
+    "[Warning] The buffer has unsaved changes. Are you sure you want to quit [y(q)\\n]?";
 
 const SAVE_SUCCESS_MESSAGE: &str = "[Success] The buffer has been saved";
 const OPEN_FAILURE_MESSAGE: &str = "[Fail] Couldn't open the file";
