@@ -11,6 +11,14 @@ pub struct Editor {
     rendered_buffer: RenderedBuffer,
     cursor: Location,
     view: ViewGeometry,
+    search_state: Option<SearchState>,
+}
+
+struct SearchState {
+    initial_cursor: Location,
+    initial_view: ViewGeometry,
+    pattern: Option<String>,
+    forward: bool,
 }
 
 impl Editor {
@@ -23,6 +31,7 @@ impl Editor {
             rendered_buffer,
             cursor: Location::new(0, 0),
             view: ViewGeometry::new(0, 0, width, height),
+            search_state: None,
         }
     }
 
@@ -288,6 +297,67 @@ impl Editor {
 
     pub fn move_cursor_to_line_end(&mut self) {
         self.cursor.col = self.rendered_buffer.last_col(self.cursor.line);
+    }
+
+    pub fn is_search_mode_active(&self) -> bool {
+        self.search_state.is_some()
+    }
+
+    pub fn start_search(&mut self) {
+        self.search_state = Some(SearchState {
+            initial_cursor: self.cursor,
+            initial_view: self.view.clone(),
+            pattern: None,
+            forward: true,
+        });
+    }
+
+    pub fn set_search_pattern(&mut self, pattern: &str) {
+        self.search_state.as_mut().unwrap().pattern = Some(String::from(pattern));
+
+        let state = self.search_state.as_ref().unwrap();
+        let cursor = state.initial_cursor;
+        let forward = state.forward;
+        let pattern = state.pattern.as_ref().unwrap();
+
+        if let Some(location) = self.buffer.find(pattern, forward, cursor) {
+            self.move_cursor_to_location(location);
+        }
+    }
+
+    pub fn set_search_direction(&mut self, forward: bool) {
+        self.search_state.as_mut().unwrap().forward = forward;
+    }
+
+    pub fn next_search_result(&mut self) {
+        let state = self.search_state.as_ref().unwrap();
+        let forward = state.forward;
+        let pattern = state.pattern.as_ref().unwrap();
+
+        if let Some(location) = self.buffer.find(pattern, forward, self.cursor) {
+            self.move_cursor_to_location(location);
+        }
+    }
+
+    pub fn finish_search(&mut self) {
+        self.search_state = None;
+    }
+
+    pub fn cancel_search(&mut self) {
+        let search_state = self.search_state.take().unwrap();
+
+        self.cursor = search_state.initial_cursor;
+        self.view = search_state.initial_view;
+    }
+
+    fn move_cursor_to_location(&mut self, location: Location) {
+        self.cursor = location;
+        if self.cursor.line < self.view.line || self.cursor.line > self.view.last_line() {
+            self.view.line = std::cmp::min(self.cursor.line, self.bottom_most_view_pos());
+        }
+        if self.cursor.col < self.view.col || self.cursor.col > self.view.last_col() {
+            self.view.col = self.cursor.col;
+        }
     }
 
     fn move_cursor_to_eol_col(&mut self) {

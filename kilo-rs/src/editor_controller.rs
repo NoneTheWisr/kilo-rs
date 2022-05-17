@@ -35,6 +35,13 @@ pub enum EditorControllerMessage {
     SaveAs(String),
 
     Open(String),
+
+    StartSearch,
+    FinishSearch,
+    CancelSearch,
+    SetSearchPattern(String),
+    SetSearchDirection(bool),
+    NextSearchResult,
 }
 
 impl EditorControllerComponent {
@@ -70,6 +77,42 @@ impl EditorControllerComponent {
                 queue.push_front(make_update_text_area_message(&context.editor));
                 queue.push_front(make_update_bottom_bar_message(&context.editor));
             }
+        } else if matches!(
+            message,
+            StartSearch
+                | FinishSearch
+                | CancelSearch
+                | SetSearchPattern(_)
+                | SetSearchDirection(_)
+                | NextSearchResult
+        ) {
+            match message {
+                StartSearch => context.editor.start_search(),
+                FinishSearch => {
+                    context.editor.finish_search();
+                    queue.push_front(make_update_text_area_message(&context.editor));
+                    queue.push_front(make_update_bottom_bar_message(&context.editor));
+                }
+                CancelSearch => {
+                    context.editor.cancel_search();
+                    queue.push_front(make_update_text_area_message(&context.editor));
+                    queue.push_front(make_update_bottom_bar_message(&context.editor));
+                }
+                SetSearchPattern(pattern) => {
+                    context.editor.set_search_pattern(&pattern);
+                    queue.push_front(make_update_text_area_message(&context.editor));
+                    queue.push_front(make_update_bottom_bar_message(&context.editor));
+                }
+                SetSearchDirection(forward) => {
+                    context.editor.set_search_direction(forward);
+                }
+                NextSearchResult => {
+                    context.editor.next_search_result();
+                    queue.push_front(make_update_text_area_message(&context.editor));
+                    queue.push_front(make_update_bottom_bar_message(&context.editor));
+                }
+                _ => unreachable!(),
+            }
         } else {
             match message {
                 MoveCursorUp => context.editor.move_cursor_up(),
@@ -86,9 +129,7 @@ impl EditorControllerComponent {
                 RemoveCharInFront => context.editor.remove_char_in_front(),
                 InsertChar(c) => context.editor.insert_char(c.clone()),
                 InsertLine => context.editor.insert_line(),
-                SaveAs(_) => unreachable!(),
-                Save => unreachable!(),
-                Open(_) => unreachable!(),
+                _ => unreachable!(),
             };
 
             queue.push_front(make_update_text_area_message(&context.editor));
@@ -112,6 +153,7 @@ fn make_update_text_area_message(editor: &Editor) -> TextAreaMessage {
     TextAreaMessage::Update(text_area::UpdateMessage {
         lines: Box::new(editor.get_view_contents()),
         cursor: editor.get_view_cursor(),
+        search_mode: editor.is_search_mode_active(),
     })
 }
 

@@ -111,4 +111,56 @@ impl Buffer {
         self.lines.insert(location.line + 1, second_line);
         self.dirty = true;
     }
+
+    pub fn find(&self, pattern: &str, forward: bool, start: Location) -> Option<Location> {
+        if forward {
+            let ahead = self.lines[start.line].get(start.col + 1..);
+            if let Some(col) = ahead.map_or(None, |ahead| ahead.find(pattern)) {
+                return Some(Location::new(start.line, start.col + 1 + col));
+            }
+        } else {
+            let ahead = self.lines[start.line].get(..start.col);
+            if let Some(col) = ahead.map_or(None, |ahead| ahead.rfind(pattern)) {
+                return Some(Location::new(start.line, col));
+            }
+        }
+
+        let result = if forward {
+            let mut lines = self
+                .lines
+                .iter()
+                .enumerate()
+                .cycle()
+                .skip(start.line + 1)
+                .take(self.lines.len().saturating_sub(1));
+            lines.find_map(|(num, line)| line.find(pattern).map(|col| Location::new(num, col)))
+        } else {
+            let mut lines = self
+                .lines
+                .iter()
+                .enumerate()
+                .rev()
+                .cycle()
+                .skip(self.lines.len() - start.line)
+                .take(self.lines.len().saturating_sub(1));
+            lines.find_map(|(num, line)| line.rfind(pattern).map(|col| Location::new(num, col)))
+        };
+        if result.is_some() {
+            return result;
+        }
+
+        if forward {
+            let behind = self.lines[start.line].get(..start.col);
+            if let Some(col) = behind.map_or(None, |ahead| ahead.find(pattern)) {
+                return Some(Location::new(start.line, col));
+            }
+        } else {
+            let behind = self.lines[start.line].get(start.col + 1..);
+            if let Some(col) = behind.map_or(None, |ahead| ahead.rfind(pattern)) {
+                return Some(Location::new(start.line, start.col + 1 + col));
+            }
+        }
+
+        None
+    }
 }

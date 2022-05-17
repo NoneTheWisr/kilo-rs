@@ -5,7 +5,7 @@ use anyhow::Result;
 use crossterm::cursor::MoveTo;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crossterm::queue;
-use crossterm::style::Print;
+use crossterm::style::{Print, Stylize};
 use crossterm::terminal::{Clear, ClearType::UntilNewLine};
 
 use kilo_rs_backend::core::Location;
@@ -14,7 +14,7 @@ use kilo_rs_backend::editor::Editor;
 use crate::editor_controller::EditorControllerMessage;
 use crate::runner::MessageQueue;
 use crate::shared::SharedContext;
-use crate::term_utils::Cursor;
+use crate::term_utils::{Cursor, MoveToCursor};
 
 pub enum TextAreaMessage {
     Update(UpdateMessage),
@@ -23,11 +23,13 @@ pub enum TextAreaMessage {
 pub struct UpdateMessage {
     pub lines: Box<dyn Iterator<Item = String> + Send>,
     pub cursor: kilo_rs_backend::core::Location,
+    pub search_mode: bool,
 }
 
 pub struct TextAreaComponent {
     lines: Vec<String>,
     cursor: Cursor,
+    search_mode: bool,
 }
 
 impl TextAreaComponent {
@@ -35,6 +37,7 @@ impl TextAreaComponent {
         Self {
             lines: get_editor_lines(&context.editor),
             cursor: get_editor_cursor(&context.editor),
+            search_mode: false,
         }
     }
 
@@ -45,6 +48,20 @@ impl TextAreaComponent {
             queue!(writer, Print(line))?;
             queue!(writer, Clear(UntilNewLine))?;
             queue!(writer, Print("\r\n"))?;
+        }
+
+        if self.search_mode {
+            queue!(writer, MoveToCursor(self.cursor))?;
+            queue!(
+                writer,
+                Print(
+                    self.lines[self.cursor.row as usize]
+                        .chars()
+                        .nth(self.cursor.col as usize)
+                        .unwrap()
+                        .negative()
+                )
+            )?;
         }
 
         Ok(())
@@ -60,6 +77,7 @@ impl TextAreaComponent {
         self.lines = message.lines.collect();
         let Location { line, col } = message.cursor;
         self.cursor = Cursor::new(line as u16, col as u16);
+        self.search_mode = message.search_mode;
 
         Ok(())
     }

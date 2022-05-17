@@ -7,6 +7,7 @@ pub mod rendering;
 // * set -> specific coord / dimension
 // I'm choosing to keep it transparent, just grouping some variables together.
 // Kind of like an implementation detail and not a part of some API.
+#[derive(Clone)]
 pub struct ViewGeometry {
     pub line: usize,
     pub col: usize,

@@ -29,6 +29,7 @@ pub struct StatusUpdate {
 pub enum PromptKind {
     SaveAs,
     Open,
+    Find,
     ConfirmQuit,
 }
 
@@ -138,6 +139,9 @@ impl BottomBarComponent {
                 self.status_info.dirty = status.dirty;
             }
             DisplayPrompt(prompt_kind) => {
+                if let PromptKind::Find = prompt_kind {
+                    queue.push_front(EditorControllerMessage::StartSearch);
+                }
                 self.prompt_info = Some(PromptInfo::new(prompt_kind));
                 queue.push_front(Focus::BottomBar);
             }
@@ -170,7 +174,7 @@ impl BottomBarComponent {
 
             let KeyEvent { code, modifiers } = event;
             match kind {
-                PromptKind::SaveAs | PromptKind::Open => match (modifiers, code) {
+                SaveAs | Open => match (modifiers, code) {
                     (KM::NONE, Char(c)) => {
                         input.push(c);
                     }
@@ -188,6 +192,39 @@ impl BottomBarComponent {
                             _ => unreachable!(),
                         };
                         queue.push_front(editor_message);
+                    }
+
+                    _ => {}
+                },
+                Find => match (modifiers, code) {
+                    (KM::NONE, Char(c)) => {
+                        input.push(c);
+                        queue.push_front(EditorControllerMessage::SetSearchPattern(input.clone()))
+                    }
+
+                    (KM::NONE, Backspace) => {
+                        input.pop();
+                        queue.push_front(EditorControllerMessage::SetSearchPattern(input.clone()))
+                    }
+                    (KM::NONE, Enter) => {
+                        self.prompt_info = None;
+
+                        queue.push_front(EditorControllerMessage::FinishSearch);
+                        queue.push_front(Focus::TextArea);
+                    }
+                    (KM::NONE, Esc) => {
+                        self.prompt_info = None;
+
+                        queue.push_front(EditorControllerMessage::CancelSearch);
+                        queue.push_front(Focus::TextArea);
+                    }
+                    (KM::NONE, Right) => {
+                        queue.push_front(EditorControllerMessage::NextSearchResult);
+                        queue.push_front(EditorControllerMessage::SetSearchDirection(true));
+                    }
+                    (KM::NONE, Left) => {
+                        queue.push_front(EditorControllerMessage::NextSearchResult);
+                        queue.push_front(EditorControllerMessage::SetSearchDirection(false));
                     }
 
                     _ => {}
@@ -216,6 +253,7 @@ impl PromptInfo {
                 PromptKind::SaveAs => SAVE_AS_MESSAGE.into(),
                 PromptKind::ConfirmQuit => CONFIRM_QUIT_MESSAGE.into(),
                 PromptKind::Open => OPEN_MESSAGE.into(),
+                PromptKind::Find => FIND_MESSAGE.into(),
             },
             kind: prompt_kind,
             input: String::new(),
@@ -238,6 +276,7 @@ impl NotificationInfo {
 
 const SAVE_AS_MESSAGE: &str = "[Save As] Enter file path:";
 const OPEN_MESSAGE: &str = "[Open] Enter file path:";
+const FIND_MESSAGE: &str = "[Find]:";
 const CONFIRM_QUIT_MESSAGE: &str =
     "[Warning] The buffer has unsaved changes. Are you sure you want to quit [y(q)\\n]?";
 
