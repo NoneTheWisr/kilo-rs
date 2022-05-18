@@ -2,10 +2,18 @@ use anyhow::Result;
 use kilo_rs_backend::editor::Editor;
 
 use crate::{
-    bottom_bar::{self, BottomBarMessage, NotificationKind, PromptKind},
+    bottom_bar::{
+        BottomBarMessage::{
+            self, DisplayNotification, DisplayPrompt, UpdateStatus as BottomBarUpdateMessage,
+        },
+        NotificationKind, PromptKind, StatusUpdate as BottomBarUpdate,
+    },
     runner::MessageQueue,
     shared::SharedContext,
-    text_area::{self, TextAreaMessage},
+    text_area::{
+        TextAreaMessage::{self, Update as TextAreaUpdateMessage},
+        UpdateMessage as TextAreaUpdate,
+    },
 };
 
 pub struct EditorControllerComponent;
@@ -117,21 +125,19 @@ impl EditorControllerComponent {
             Save => {
                 if context.editor.get_file_name().is_some() {
                     context.editor.save_file()?;
-
-                    queue.push(SAVE_NOTIFICATION);
+                    queue.push(DisplayNotification(NotificationKind::SaveSuccess));
                 } else {
-                    queue.push(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
+                    queue.push(DisplayPrompt(PromptKind::SaveAs));
                 }
             }
             SaveAs(path) => {
                 context.editor.save_file_as(&path)?;
-
-                queue.push(SAVE_NOTIFICATION);
+                queue.push(DisplayNotification(NotificationKind::SaveSuccess));
                 queue.push(make_update_bottom_bar_message(&context.editor));
             }
             Open(path) => {
                 if let Err(_) = context.editor.open_file(&path) {
-                    queue.push(OPEN_FAILURE_NOTIFICATION);
+                    queue.push(DisplayNotification(NotificationKind::OpenFailure));
                 } else {
                     update_text_area_and_bottom_bar(queue, &context.editor);
                 }
@@ -168,7 +174,7 @@ fn update_text_area_and_bottom_bar(queue: &mut MessageQueue, editor: &Editor) {
 }
 
 fn make_update_bottom_bar_message(editor: &Editor) -> BottomBarMessage {
-    BottomBarMessage::UpdateStatus(bottom_bar::StatusUpdate {
+    BottomBarUpdateMessage(BottomBarUpdate {
         file_name: editor.get_file_name().cloned(),
         dirty: editor.is_buffer_dirty(),
         cursor_line: editor.get_view_cursor().line.saturating_add(1),
@@ -177,14 +183,9 @@ fn make_update_bottom_bar_message(editor: &Editor) -> BottomBarMessage {
 }
 
 fn make_update_text_area_message(editor: &Editor) -> TextAreaMessage {
-    TextAreaMessage::Update(text_area::UpdateMessage {
+    TextAreaUpdateMessage(TextAreaUpdate {
         lines: Box::new(editor.get_view_contents()),
         cursor: editor.get_view_cursor(),
         search_mode: editor.is_search_mode_active(),
     })
 }
-
-const SAVE_NOTIFICATION: BottomBarMessage =
-    BottomBarMessage::DisplayNotification(NotificationKind::SaveSuccess);
-const OPEN_FAILURE_NOTIFICATION: BottomBarMessage =
-    BottomBarMessage::DisplayNotification(NotificationKind::OpenFailure);
