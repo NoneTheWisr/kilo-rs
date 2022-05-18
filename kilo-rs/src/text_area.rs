@@ -114,7 +114,7 @@ impl TextAreaComponent {
             _ => return Ok(()),
         };
 
-        queue.push_front(message);
+        queue.push(message);
         Ok(())
     }
 }

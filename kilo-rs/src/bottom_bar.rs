@@ -140,10 +140,10 @@ impl BottomBarComponent {
             }
             DisplayPrompt(prompt_kind) => {
                 if let PromptKind::Find = prompt_kind {
-                    queue.push_front(EditorControllerMessage::StartSearch);
+                    queue.push(EditorControllerMessage::StartSearch);
                 }
                 self.prompt_info = Some(PromptInfo::new(prompt_kind));
-                queue.push_front(Focus::BottomBar);
+                queue.push(Focus::BottomBar);
             }
             DisplayNotification(notification_kind) => {
                 self.notification_info = Some(NotificationInfo::new(notification_kind));
@@ -185,13 +185,13 @@ impl BottomBarComponent {
                     (KM::NONE, Enter) => {
                         let prompt_info = self.prompt_info.take().unwrap();
 
-                        queue.push_front(Focus::TextArea);
+                        queue.push(Focus::TextArea);
                         let editor_message = match prompt_info.kind {
                             SaveAs => EditorControllerMessage::SaveAs(prompt_info.input),
                             Open => EditorControllerMessage::Open(prompt_info.input),
                             _ => unreachable!(),
                         };
-                        queue.push_front(editor_message);
+                        queue.push(editor_message);
                     }
 
                     _ => {}
@@ -199,43 +199,43 @@ impl BottomBarComponent {
                 Find => match (modifiers, code) {
                     (KM::NONE, Char(c)) => {
                         input.push(c);
-                        queue.push_front(EditorControllerMessage::SetSearchPattern(input.clone()))
+                        queue.push(EditorControllerMessage::SetSearchPattern(input.clone()))
                     }
 
                     (KM::NONE, Backspace) => {
                         input.pop();
-                        queue.push_front(EditorControllerMessage::SetSearchPattern(input.clone()))
+                        queue.push(EditorControllerMessage::SetSearchPattern(input.clone()))
                     }
                     (KM::NONE, Enter) => {
                         self.prompt_info = None;
 
-                        queue.push_front(EditorControllerMessage::FinishSearch);
-                        queue.push_front(Focus::TextArea);
+                        queue.push(EditorControllerMessage::FinishSearch);
+                        queue.push(Focus::TextArea);
                     }
                     (KM::NONE, Esc) => {
                         self.prompt_info = None;
 
-                        queue.push_front(EditorControllerMessage::CancelSearch);
-                        queue.push_front(Focus::TextArea);
+                        queue.push(EditorControllerMessage::CancelSearch);
+                        queue.push(Focus::TextArea);
                     }
                     (KM::NONE, Right) => {
-                        queue.push_front(EditorControllerMessage::NextSearchResult);
-                        queue.push_front(EditorControllerMessage::SetSearchDirection(true));
+                        queue.push(EditorControllerMessage::NextSearchResult);
+                        queue.push(EditorControllerMessage::SetSearchDirection(true));
                     }
                     (KM::NONE, Left) => {
-                        queue.push_front(EditorControllerMessage::NextSearchResult);
-                        queue.push_front(EditorControllerMessage::SetSearchDirection(false));
+                        queue.push(EditorControllerMessage::NextSearchResult);
+                        queue.push(EditorControllerMessage::SetSearchDirection(false));
                     }
 
                     _ => {}
                 },
                 ConfirmQuit => match (modifiers, code) {
                     (_, Char('y') | Char('q')) => {
-                        queue.push_front(AppMessage::Quit);
+                        queue.push(AppMessage::Quit);
                     }
                     (_, Char('n') | Esc) => {
                         self.prompt_info = None;
-                        queue.push_front(Focus::TextArea);
+                        queue.push(Focus::TextArea);
                     }
                     _ => {}
                 },

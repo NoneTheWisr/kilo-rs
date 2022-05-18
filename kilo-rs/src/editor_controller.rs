@@ -61,21 +61,21 @@ impl EditorControllerComponent {
             if context.editor.get_file_name().is_some() {
                 context.editor.save_file()?;
 
-                queue.push_front(SAVE_NOTIFICATION);
+                queue.push(SAVE_NOTIFICATION);
             } else {
-                queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
+                queue.push(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
             }
         } else if let SaveAs(path) = message {
             context.editor.save_file_as(&path)?;
 
-            queue.push_front(SAVE_NOTIFICATION);
-            queue.push_front(make_update_bottom_bar_message(&context.editor));
+            queue.push(SAVE_NOTIFICATION);
+            queue.push(make_update_bottom_bar_message(&context.editor));
         } else if let Open(path) = message {
             if let Err(_) = context.editor.open_file(&path) {
-                queue.push_front(OPEN_FAILURE_NOTIFICATION);
+                queue.push(OPEN_FAILURE_NOTIFICATION);
             } else {
-                queue.push_front(make_update_text_area_message(&context.editor));
-                queue.push_front(make_update_bottom_bar_message(&context.editor));
+                queue.push(make_update_text_area_message(&context.editor));
+                queue.push(make_update_bottom_bar_message(&context.editor));
             }
         } else if matches!(
             message,
@@ -90,26 +90,26 @@ impl EditorControllerComponent {
                 StartSearch => context.editor.start_search(),
                 FinishSearch => {
                     context.editor.finish_search();
-                    queue.push_front(make_update_text_area_message(&context.editor));
-                    queue.push_front(make_update_bottom_bar_message(&context.editor));
+                    queue.push(make_update_text_area_message(&context.editor));
+                    queue.push(make_update_bottom_bar_message(&context.editor));
                 }
                 CancelSearch => {
                     context.editor.cancel_search();
-                    queue.push_front(make_update_text_area_message(&context.editor));
-                    queue.push_front(make_update_bottom_bar_message(&context.editor));
+                    queue.push(make_update_text_area_message(&context.editor));
+                    queue.push(make_update_bottom_bar_message(&context.editor));
                 }
                 SetSearchPattern(pattern) => {
                     context.editor.set_search_pattern(&pattern);
-                    queue.push_front(make_update_text_area_message(&context.editor));
-                    queue.push_front(make_update_bottom_bar_message(&context.editor));
+                    queue.push(make_update_text_area_message(&context.editor));
+                    queue.push(make_update_bottom_bar_message(&context.editor));
                 }
                 SetSearchDirection(forward) => {
                     context.editor.set_search_direction(forward);
                 }
                 NextSearchResult => {
                     context.editor.next_search_result();
-                    queue.push_front(make_update_text_area_message(&context.editor));
-                    queue.push_front(make_update_bottom_bar_message(&context.editor));
+                    queue.push(make_update_text_area_message(&context.editor));
+                    queue.push(make_update_bottom_bar_message(&context.editor));
                 }
                 _ => unreachable!(),
             }
@@ -132,8 +132,8 @@ impl EditorControllerComponent {
                 _ => unreachable!(),
             };
 
-            queue.push_front(make_update_text_area_message(&context.editor));
-            queue.push_front(make_update_bottom_bar_message(&context.editor));
+            queue.push(make_update_text_area_message(&context.editor));
+            queue.push(make_update_bottom_bar_message(&context.editor));
         }
 
         Ok(())

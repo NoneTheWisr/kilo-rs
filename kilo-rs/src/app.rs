@@ -146,7 +146,7 @@ impl App {
         match (modifiers, code) {
             (KM::CONTROL, Char('q')) => {
                 if self.context.editor.is_buffer_dirty() {
-                    queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::ConfirmQuit))
+                    queue.push(BottomBarMessage::DisplayPrompt(PromptKind::ConfirmQuit))
                 } else {
                     return Ok(ShouldQuit::Yes);
                 }
@@ -156,14 +156,14 @@ impl App {
             }
 
             (KM::CONTROL, Char('o')) => {
-                queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::Open))
+                queue.push(BottomBarMessage::DisplayPrompt(PromptKind::Open))
             }
             (KM::CONTROL, Char('f')) => {
-                queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::Find))
+                queue.push(BottomBarMessage::DisplayPrompt(PromptKind::Find))
             }
-            (KM::CONTROL, Char('s')) => queue.push_front(EditorControllerMessage::Save),
+            (KM::CONTROL, Char('s')) => queue.push(EditorControllerMessage::Save),
             (mods, Char('s')) if mods == KM::CONTROL | KM::ALT => {
-                queue.push_front(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
+                queue.push(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
             }
 
             _ => match self.focus {

@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::io::{self, BufWriter, Stdout, Write};
 
 use anyhow::{Context, Result};
@@ -22,19 +21,19 @@ pub enum ShouldQuit {
     No,
 }
 
-pub struct MessageQueue(VecDeque<AppMessage>);
+pub struct MessageQueue(Vec<AppMessage>);
 
 impl MessageQueue {
     pub fn new() -> Self {
-        Self(VecDeque::new())
+        Self(Vec::new())
     }
 
-    pub fn pop_front(&mut self) -> Option<AppMessage> {
-        self.0.pop_front()
+    pub fn pop(&mut self) -> Option<AppMessage> {
+        self.0.pop()
     }
 
-    pub fn push_front(&mut self, message: impl Into<AppMessage>) {
-        self.0.push_front(message.into())
+    pub fn push(&mut self, message: impl Into<AppMessage>) {
+        self.0.push(message.into())
     }
 }
 
@@ -71,7 +70,7 @@ impl AppRunner {
     }
 
     fn update(&mut self) -> Result<ShouldQuit> {
-        while let Some(message) = self.queue.pop_front() {
+        while let Some(message) = self.queue.pop() {
             if let ShouldQuit::Yes = self.app.update(message, &mut self.queue)? {
                 return Ok(ShouldQuit::Yes);
             }
