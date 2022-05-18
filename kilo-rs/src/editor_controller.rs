@@ -2,6 +2,7 @@ use anyhow::Result;
 use kilo_rs_backend::editor::Editor;
 
 use crate::{
+    app::AppMessage,
     bottom_bar::{
         BottomBarMessage::{
             self, DisplayNotification, DisplayPrompt, UpdateStatus as BottomBarUpdateMessage,
@@ -9,14 +10,11 @@ use crate::{
         NotificationKind, PromptKind, StatusUpdate as BottomBarUpdate,
     },
     runner::MessageQueue,
-    shared::SharedContext,
     text_area::{
         TextAreaMessage::{self, Update as TextAreaUpdateMessage},
         UpdateMessage as TextAreaUpdate,
     },
 };
-
-pub struct EditorControllerComponent;
 
 pub enum EditorControllerMessage {
     MoveCursorUp,
@@ -50,142 +48,154 @@ pub enum EditorControllerMessage {
     SetSearchPattern(String),
     SetSearchDirection(bool),
     NextSearchResult,
+
+    RequestQuit,
+}
+
+pub struct EditorControllerComponent {
+    editor: Editor,
 }
 
 impl EditorControllerComponent {
-    pub fn new() -> Self {
-        Self
+    pub fn new(editor: Editor) -> Self {
+        Self { editor }
     }
 
     pub fn update(
         &mut self,
         message: EditorControllerMessage,
         queue: &mut MessageQueue,
-        context: &mut SharedContext,
     ) -> Result<()> {
         use EditorControllerMessage::*;
 
         match message {
             MoveCursorUp => {
-                context.editor.move_cursor_up();
-                update_text_area_and_bottom_bar(queue, &context.editor)
+                self.editor.move_cursor_up();
+                self.update_text_area_and_bottom_bar(queue);
             }
             MoveCursorDown => {
-                context.editor.move_cursor_down();
-                update_text_area_and_bottom_bar(queue, &context.editor)
+                self.editor.move_cursor_down();
+                self.update_text_area_and_bottom_bar(queue);
             }
             MoveCursorLeft => {
-                context.editor.move_cursor_left();
-                update_text_area_and_bottom_bar(queue, &context.editor)
+                self.editor.move_cursor_left();
+                self.update_text_area_and_bottom_bar(queue);
             }
             MoveCursorRight => {
-                context.editor.move_cursor_right();
-                update_text_area_and_bottom_bar(queue, &context.editor)
+                self.editor.move_cursor_right();
+                self.update_text_area_and_bottom_bar(queue);
             }
             MoveCursorToLineStart => {
-                context.editor.move_cursor_to_line_start();
-                update_text_area_and_bottom_bar(queue, &context.editor)
+                self.editor.move_cursor_to_line_start();
+                self.update_text_area_and_bottom_bar(queue);
             }
             MoveCursorToLineEnd => {
-                context.editor.move_cursor_to_line_end();
-                update_text_area_and_bottom_bar(queue, &context.editor)
+                self.editor.move_cursor_to_line_end();
+                self.update_text_area_and_bottom_bar(queue);
             }
             MoveOneViewUp => {
-                context.editor.move_one_view_up();
-                update_text_area_and_bottom_bar(queue, &context.editor)
+                self.editor.move_one_view_up();
+                self.update_text_area_and_bottom_bar(queue);
             }
             MoveOneViewDown => {
-                context.editor.move_one_view_down();
-                update_text_area_and_bottom_bar(queue, &context.editor)
+                self.editor.move_one_view_down();
+                self.update_text_area_and_bottom_bar(queue);
             }
             MoveCursorToBufferTop => {
-                context.editor.move_cursor_to_buffer_top();
-                update_text_area_and_bottom_bar(queue, &context.editor)
+                self.editor.move_cursor_to_buffer_top();
+                self.update_text_area_and_bottom_bar(queue);
             }
             MoveCursorToBufferBottom => {
-                context.editor.move_cursor_to_buffer_bottom();
-                update_text_area_and_bottom_bar(queue, &context.editor)
+                self.editor.move_cursor_to_buffer_bottom();
+                self.update_text_area_and_bottom_bar(queue);
             }
             RemoveCharBehind => {
-                context.editor.remove_char_behind();
-                update_text_area_and_bottom_bar(queue, &context.editor)
+                self.editor.remove_char_behind();
+                self.update_text_area_and_bottom_bar(queue);
             }
             RemoveCharInFront => {
-                context.editor.remove_char_in_front();
-                update_text_area_and_bottom_bar(queue, &context.editor)
+                self.editor.remove_char_in_front();
+                self.update_text_area_and_bottom_bar(queue);
             }
             InsertChar(c) => {
-                context.editor.insert_char(c.clone());
-                update_text_area_and_bottom_bar(queue, &context.editor)
+                self.editor.insert_char(c.clone());
+                self.update_text_area_and_bottom_bar(queue);
             }
             InsertLine => {
-                context.editor.insert_line();
-                update_text_area_and_bottom_bar(queue, &context.editor)
+                self.editor.insert_line();
+                self.update_text_area_and_bottom_bar(queue);
             }
             Save => {
-                if context.editor.get_file_name().is_some() {
-                    context.editor.save_file()?;
+                if self.editor.get_file_name().is_some() {
+                    self.editor.save_file()?;
                     queue.push(DisplayNotification(NotificationKind::SaveSuccess));
                 } else {
                     queue.push(DisplayPrompt(PromptKind::SaveAs));
                 }
             }
             SaveAs(path) => {
-                context.editor.save_file_as(&path)?;
+                self.editor.save_file_as(&path)?;
                 queue.push(DisplayNotification(NotificationKind::SaveSuccess));
-                queue.push(make_update_bottom_bar_message(&context.editor));
+                queue.push(self.make_update_bottom_bar_message());
             }
             Open(path) => {
-                if let Err(_) = context.editor.open_file(&path) {
+                if let Err(_) = self.editor.open_file(&path) {
                     queue.push(DisplayNotification(NotificationKind::OpenFailure));
                 } else {
-                    update_text_area_and_bottom_bar(queue, &context.editor);
+                    self.update_text_area_and_bottom_bar(queue);
                 }
             }
-            StartSearch => context.editor.start_search(),
+            StartSearch => self.editor.start_search(),
             FinishSearch => {
-                context.editor.finish_search();
-                update_text_area_and_bottom_bar(queue, &context.editor);
+                self.editor.finish_search();
+                self.update_text_area_and_bottom_bar(queue);
             }
             CancelSearch => {
-                context.editor.cancel_search();
-                update_text_area_and_bottom_bar(queue, &context.editor);
+                self.editor.cancel_search();
+                self.update_text_area_and_bottom_bar(queue);
             }
             SetSearchPattern(pattern) => {
-                context.editor.set_search_pattern(&pattern);
-                update_text_area_and_bottom_bar(queue, &context.editor);
+                self.editor.set_search_pattern(&pattern);
+                self.update_text_area_and_bottom_bar(queue);
             }
             SetSearchDirection(forward) => {
-                context.editor.set_search_direction(forward);
+                self.editor.set_search_direction(forward);
             }
             NextSearchResult => {
-                context.editor.next_search_result();
-                update_text_area_and_bottom_bar(queue, &context.editor);
+                self.editor.next_search_result();
+                self.update_text_area_and_bottom_bar(queue);
+            }
+            RequestQuit => {
+                if self.editor.is_buffer_dirty() {
+                    queue.push(DisplayPrompt(PromptKind::ConfirmQuit));
+                } else {
+                    queue.push(AppMessage::Quit)
+                }
             }
         }
 
         Ok(())
     }
-}
 
-fn update_text_area_and_bottom_bar(queue: &mut MessageQueue, editor: &Editor) {
-    queue.push(make_update_text_area_message(editor));
-    queue.push(make_update_bottom_bar_message(editor));
-}
+    fn update_text_area_and_bottom_bar(&self, queue: &mut MessageQueue) {
+        queue.push(self.make_update_text_area_message());
+        queue.push(self.make_update_bottom_bar_message());
+    }
 
-fn make_update_bottom_bar_message(editor: &Editor) -> BottomBarMessage {
-    BottomBarUpdateMessage(BottomBarUpdate {
-        file_name: editor.get_file_name().cloned(),
-        dirty: editor.is_buffer_dirty(),
-        cursor_line: editor.get_view_cursor().line.saturating_add(1),
-        line_count: editor.get_buffer_line_count(),
-    })
-}
+    fn make_update_bottom_bar_message(&self) -> BottomBarMessage {
+        BottomBarUpdateMessage(BottomBarUpdate {
+            file_name: self.editor.get_file_name().cloned(),
+            dirty: self.editor.is_buffer_dirty(),
+            cursor_line: self.editor.get_view_cursor().line.saturating_add(1),
+            line_count: self.editor.get_buffer_line_count(),
+        })
+    }
 
-fn make_update_text_area_message(editor: &Editor) -> TextAreaMessage {
-    TextAreaUpdateMessage(TextAreaUpdate {
-        lines: Box::new(editor.get_view_contents()),
-        cursor: editor.get_view_cursor(),
-        search_mode: editor.is_search_mode_active(),
-    })
+    fn make_update_text_area_message(&self) -> TextAreaMessage {
+        TextAreaUpdateMessage(TextAreaUpdate {
+            lines: Box::new(self.editor.get_view_contents()),
+            cursor: self.editor.get_view_cursor(),
+            search_mode: self.editor.is_search_mode_active(),
+        })
+    }
 }

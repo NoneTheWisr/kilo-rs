@@ -6,11 +6,12 @@ use crossterm::cursor::MoveTo;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crossterm::queue;
 use crossterm::style::{PrintStyledContent, Stylize};
+use kilo_rs_backend::editor::Editor;
 
 use crate::app::{AppMessage, Focus};
 use crate::editor_controller::EditorControllerMessage;
 use crate::runner::MessageQueue;
-use crate::shared::{Rectangle, SharedContext};
+use crate::shared::Rectangle;
 use crate::term_utils::Cursor;
 
 pub enum BottomBarMessage {
@@ -66,17 +67,16 @@ struct NotificationInfo {
 const NOTIFICATION_DURATION: f32 = 1.0;
 
 impl BottomBarComponent {
-    pub fn new(rect: Rectangle, context: &SharedContext) -> Self {
+    pub fn new(rect: Rectangle, editor: &Editor) -> Self {
         Self {
             status_info: StatusInfo {
-                buffer_name: context
-                    .editor
+                buffer_name: editor
                     .get_file_name()
                     .cloned()
                     .unwrap_or("[Scratch]".into()),
-                dirty: context.editor.is_buffer_dirty(),
-                cursor_line: context.editor.get_view_cursor().line + 1,
-                line_count: context.editor.get_buffer_line_count(),
+                dirty: editor.is_buffer_dirty(),
+                cursor_line: editor.get_view_cursor().line + 1,
+                line_count: editor.get_buffer_line_count(),
             },
             prompt_info: None,
             notification_info: None,

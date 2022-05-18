@@ -1,9 +1,3 @@
-use kilo_rs_backend::editor::Editor;
-
-pub struct SharedContext {
-    pub editor: Editor,
-}
-
 pub struct Rectangle {
     pub top: u16,
     pub left: u16,

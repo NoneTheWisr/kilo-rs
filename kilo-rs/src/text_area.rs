@@ -13,7 +13,6 @@ use kilo_rs_backend::editor::Editor;
 
 use crate::editor_controller::EditorControllerMessage;
 use crate::runner::MessageQueue;
-use crate::shared::SharedContext;
 use crate::term_utils::{Cursor, MoveToCursor};
 
 pub enum TextAreaMessage {
@@ -33,10 +32,10 @@ pub struct TextAreaComponent {
 }
 
 impl TextAreaComponent {
-    pub fn new(context: &SharedContext) -> Self {
+    pub fn new(editor: &Editor) -> Self {
         Self {
-            lines: get_editor_lines(&context.editor),
-            cursor: get_editor_cursor(&context.editor),
+            lines: get_editor_lines(&editor),
+            cursor: get_editor_cursor(&editor),
             search_mode: false,
         }
     }

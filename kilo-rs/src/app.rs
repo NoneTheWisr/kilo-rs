@@ -13,7 +13,7 @@ use crate::{
     bottom_bar::{BottomBarComponent, BottomBarMessage, PromptKind},
     editor_controller::{EditorControllerComponent, EditorControllerMessage},
     runner::{MessageQueue, ShouldQuit},
-    shared::{Rectangle, SharedContext},
+    shared::Rectangle,
     term_utils::Cursor,
     text_area::{TextAreaComponent, TextAreaMessage},
 };
@@ -51,7 +51,6 @@ impl From<Focus> for AppMessage {
 }
 
 pub struct App {
-    context: SharedContext,
     editor_controller: EditorControllerComponent,
     text_area: TextAreaComponent,
     bottom_bar: BottomBarComponent,
@@ -73,16 +72,12 @@ impl App {
         let (width, height) = terminal::size()?;
         let rect = Rectangle::new(0, 0, width, height);
 
-        let mut context = SharedContext {
-            editor: Editor::new(width as usize, height.saturating_sub(1) as usize),
-        };
-
+        let mut editor = Editor::new(width as usize, height.saturating_sub(1) as usize);
         if let Some(file_path) = args.file {
-            context.editor.open_file(&file_path)?;
+            editor.open_file(&file_path)?;
         }
 
-        let editor_controller = EditorControllerComponent::new();
-        let text_area = TextAreaComponent::new(&context);
+        let text_area = TextAreaComponent::new(&editor);
         let bottom_bar = BottomBarComponent::new(
             Rectangle {
                 top: rect.bottom,
@@ -90,11 +85,11 @@ impl App {
                 bottom: rect.bottom,
                 right: rect.right,
             },
-            &context,
+            &editor,
         );
+        let editor_controller = EditorControllerComponent::new(editor);
 
         Ok(Self {
-            context,
             editor_controller,
             text_area,
             bottom_bar,
@@ -106,10 +101,7 @@ impl App {
         use AppMessage::*;
 
         match message {
-            EditorControllerMessage(message) => {
-                self.editor_controller
-                    .update(message, queue, &mut self.context)?
-            }
+            EditorControllerMessage(message) => self.editor_controller.update(message, queue)?,
             TextAreaMessage(message) => self.text_area.update(message)?,
             BottomBarMessage(message) => self.bottom_bar.update(message, queue)?,
             SwitchFocus(focus) => self.focus = focus,
@@ -145,11 +137,7 @@ impl App {
         let KeyEvent { modifiers, code } = event;
         match (modifiers, code) {
             (KM::CONTROL, Char('q')) => {
-                if self.context.editor.is_buffer_dirty() {
-                    queue.push(BottomBarMessage::DisplayPrompt(PromptKind::ConfirmQuit))
-                } else {
-                    return Ok(ShouldQuit::Yes);
-                }
+                queue.push(EditorControllerMessage::RequestQuit);
             }
             (mods, Char('q')) if mods == KM::CONTROL | KM::ALT => {
                 return Ok(ShouldQuit::Yes);
