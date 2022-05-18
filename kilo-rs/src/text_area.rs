@@ -36,7 +36,7 @@ impl TextAreaComponent {
         Self {
             lines: get_editor_lines(&editor),
             cursor: get_editor_cursor(&editor),
-            search_mode: false,
+            search_mode: get_editor_search_mode(&editor),
         }
     }
 
@@ -51,16 +51,7 @@ impl TextAreaComponent {
 
         if self.search_mode {
             queue!(writer, MoveToCursor(self.cursor))?;
-            queue!(
-                writer,
-                Print(
-                    self.lines[self.cursor.row as usize]
-                        .chars()
-                        .nth(self.cursor.col as usize)
-                        .unwrap()
-                        .negative()
-                )
-            )?;
+            queue!(writer, Print(self.get_char_at_cursor().negative()))?;
         }
 
         Ok(())
@@ -116,6 +107,13 @@ impl TextAreaComponent {
         queue.push(message);
         Ok(())
     }
+
+    fn get_char_at_cursor(&self) -> char {
+        self.lines[self.cursor.row as usize]
+            .chars()
+            .nth(self.cursor.col as usize)
+            .unwrap()
+    }
 }
 
 fn get_editor_lines(editor: &Editor) -> Vec<String> {
@@ -125,4 +123,8 @@ fn get_editor_lines(editor: &Editor) -> Vec<String> {
 fn get_editor_cursor(editor: &Editor) -> Cursor {
     let Location { line, col } = editor.get_view_cursor();
     Cursor::new(line as u16, col as u16)
+}
+
+fn get_editor_search_mode(editor: &Editor) -> bool {
+    editor.is_search_mode_active()
 }
