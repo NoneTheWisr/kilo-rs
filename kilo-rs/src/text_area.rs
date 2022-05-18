@@ -33,10 +33,16 @@ pub struct TextAreaComponent {
 
 impl TextAreaComponent {
     pub fn new(editor: &Editor) -> Self {
+        let Location { line, col } = editor.get_view_cursor();
+
+        let lines = editor.get_view_contents().collect();
+        let cursor = Cursor::new(line as u16, col as u16);
+        let search_mode = editor.is_search_mode_active();
+
         Self {
-            lines: get_editor_lines(&editor),
-            cursor: get_editor_cursor(&editor),
-            search_mode: get_editor_search_mode(&editor),
+            lines,
+            cursor,
+            search_mode,
         }
     }
 
@@ -114,17 +120,4 @@ impl TextAreaComponent {
             .nth(self.cursor.col as usize)
             .unwrap()
     }
-}
-
-fn get_editor_lines(editor: &Editor) -> Vec<String> {
-    editor.get_view_contents().collect()
-}
-
-fn get_editor_cursor(editor: &Editor) -> Cursor {
-    let Location { line, col } = editor.get_view_cursor();
-    Cursor::new(line as u16, col as u16)
-}
-
-fn get_editor_search_mode(editor: &Editor) -> bool {
-    editor.is_search_mode_active()
 }
