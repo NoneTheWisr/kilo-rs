@@ -52,9 +52,7 @@ impl AppRunner {
         self.render()?;
 
         loop {
-            if let ShouldQuit::Yes = self.process_events()? {
-                break;
-            }
+            self.process_events()?;
             if let ShouldQuit::Yes = self.update()? {
                 break;
             }
@@ -92,11 +90,11 @@ impl AppRunner {
         Ok(())
     }
 
-    fn process_events(&mut self) -> Result<ShouldQuit> {
+    fn process_events(&mut self) -> Result<()> {
         if let Event::Key(event) = event::read()? {
-            self.app.process_event(event, &mut self.queue)
-        } else {
-            Ok(ShouldQuit::No)
+            self.app.process_event(event, &mut self.queue)?
         }
+
+        Ok(())
     }
 }

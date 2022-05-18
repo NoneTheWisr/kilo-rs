@@ -26,30 +26,6 @@ pub enum AppMessage {
     Quit,
 }
 
-impl From<EditorControllerMessage> for AppMessage {
-    fn from(message: EditorControllerMessage) -> Self {
-        Self::EditorControllerMessage(message)
-    }
-}
-
-impl From<TextAreaMessage> for AppMessage {
-    fn from(message: TextAreaMessage) -> Self {
-        Self::TextAreaMessage(message)
-    }
-}
-
-impl From<BottomBarMessage> for AppMessage {
-    fn from(message: BottomBarMessage) -> Self {
-        Self::BottomBarMessage(message)
-    }
-}
-
-impl From<Focus> for AppMessage {
-    fn from(focus: Focus) -> Self {
-        Self::SwitchFocus(focus)
-    }
-}
-
 pub struct App {
     editor_controller: EditorControllerComponent,
     text_area: TextAreaComponent,
@@ -125,41 +101,59 @@ impl App {
         }
     }
 
-    #[allow(unused_imports)]
-    pub fn process_event(
-        &mut self,
-        event: KeyEvent,
-        queue: &mut MessageQueue,
-    ) -> Result<ShouldQuit> {
+    #[rustfmt::skip]
+    pub fn process_event(&mut self, event: KeyEvent, queue: &mut MessageQueue) -> Result<()> {
         use KeyCode::*;
         use KeyModifiers as KM;
 
         let KeyEvent { modifiers, code } = event;
         match (modifiers, code) {
-            (KM::CONTROL, Char('q')) => {
-                queue.push(EditorControllerMessage::RequestQuit);
-            }
-            (mods, Char('q')) if mods == KM::CONTROL | KM::ALT => {
-                return Ok(ShouldQuit::Yes);
-            }
+            (KM::CONTROL, Char('q')) => 
+                queue.push(EditorControllerMessage::RequestQuit),
+            (mods, Char('q')) if mods == KM::CONTROL | KM::ALT =>
+                queue.push(AppMessage::Quit),
+            
 
-            (KM::CONTROL, Char('o')) => {
-                queue.push(BottomBarMessage::DisplayPrompt(PromptKind::Open))
-            }
-            (KM::CONTROL, Char('f')) => {
-                queue.push(BottomBarMessage::DisplayPrompt(PromptKind::Find))
-            }
-            (KM::CONTROL, Char('s')) => queue.push(EditorControllerMessage::Save),
-            (mods, Char('s')) if mods == KM::CONTROL | KM::ALT => {
-                queue.push(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
-            }
-
+            (KM::CONTROL, Char('o')) => 
+                queue.push(BottomBarMessage::DisplayPrompt(PromptKind::Open)),
+            (KM::CONTROL, Char('f')) => 
+                queue.push(BottomBarMessage::DisplayPrompt(PromptKind::Find)),
+            (KM::CONTROL, Char('s')) => 
+                queue.push(EditorControllerMessage::Save),
+            (mods, Char('s')) if mods == KM::CONTROL | KM::ALT => 
+                queue.push(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs)),
+            
             _ => match self.focus {
                 Focus::TextArea => self.text_area.process_event(event, queue)?,
                 Focus::BottomBar => self.bottom_bar.process_event(event, queue)?,
             },
         }
 
-        Ok(ShouldQuit::No)
+        Ok(())
     }
 }
+
+impl From<EditorControllerMessage> for AppMessage {
+    fn from(message: EditorControllerMessage) -> Self {
+        Self::EditorControllerMessage(message)
+    }
+}
+
+impl From<TextAreaMessage> for AppMessage {
+    fn from(message: TextAreaMessage) -> Self {
+        Self::TextAreaMessage(message)
+    }
+}
+
+impl From<BottomBarMessage> for AppMessage {
+    fn from(message: BottomBarMessage) -> Self {
+        Self::BottomBarMessage(message)
+    }
+}
+
+impl From<Focus> for AppMessage {
+    fn from(focus: Focus) -> Self {
+        Self::SwitchFocus(focus)
+    }
+}
+
