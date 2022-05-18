@@ -57,87 +57,114 @@ impl EditorControllerComponent {
     ) -> Result<()> {
         use EditorControllerMessage::*;
 
-        if let Save = message {
-            if context.editor.get_file_name().is_some() {
-                context.editor.save_file()?;
+        match message {
+            MoveCursorUp => {
+                context.editor.move_cursor_up();
+                update_text_area_and_bottom_bar(queue, &context.editor)
+            }
+            MoveCursorDown => {
+                context.editor.move_cursor_down();
+                update_text_area_and_bottom_bar(queue, &context.editor)
+            }
+            MoveCursorLeft => {
+                context.editor.move_cursor_left();
+                update_text_area_and_bottom_bar(queue, &context.editor)
+            }
+            MoveCursorRight => {
+                context.editor.move_cursor_right();
+                update_text_area_and_bottom_bar(queue, &context.editor)
+            }
+            MoveCursorToLineStart => {
+                context.editor.move_cursor_to_line_start();
+                update_text_area_and_bottom_bar(queue, &context.editor)
+            }
+            MoveCursorToLineEnd => {
+                context.editor.move_cursor_to_line_end();
+                update_text_area_and_bottom_bar(queue, &context.editor)
+            }
+            MoveOneViewUp => {
+                context.editor.move_one_view_up();
+                update_text_area_and_bottom_bar(queue, &context.editor)
+            }
+            MoveOneViewDown => {
+                context.editor.move_one_view_down();
+                update_text_area_and_bottom_bar(queue, &context.editor)
+            }
+            MoveCursorToBufferTop => {
+                context.editor.move_cursor_to_buffer_top();
+                update_text_area_and_bottom_bar(queue, &context.editor)
+            }
+            MoveCursorToBufferBottom => {
+                context.editor.move_cursor_to_buffer_bottom();
+                update_text_area_and_bottom_bar(queue, &context.editor)
+            }
+            RemoveCharBehind => {
+                context.editor.remove_char_behind();
+                update_text_area_and_bottom_bar(queue, &context.editor)
+            }
+            RemoveCharInFront => {
+                context.editor.remove_char_in_front();
+                update_text_area_and_bottom_bar(queue, &context.editor)
+            }
+            InsertChar(c) => {
+                context.editor.insert_char(c.clone());
+                update_text_area_and_bottom_bar(queue, &context.editor)
+            }
+            InsertLine => {
+                context.editor.insert_line();
+                update_text_area_and_bottom_bar(queue, &context.editor)
+            }
+            Save => {
+                if context.editor.get_file_name().is_some() {
+                    context.editor.save_file()?;
+
+                    queue.push(SAVE_NOTIFICATION);
+                } else {
+                    queue.push(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
+                }
+            }
+            SaveAs(path) => {
+                context.editor.save_file_as(&path)?;
 
                 queue.push(SAVE_NOTIFICATION);
-            } else {
-                queue.push(BottomBarMessage::DisplayPrompt(PromptKind::SaveAs));
-            }
-        } else if let SaveAs(path) = message {
-            context.editor.save_file_as(&path)?;
-
-            queue.push(SAVE_NOTIFICATION);
-            queue.push(make_update_bottom_bar_message(&context.editor));
-        } else if let Open(path) = message {
-            if let Err(_) = context.editor.open_file(&path) {
-                queue.push(OPEN_FAILURE_NOTIFICATION);
-            } else {
-                queue.push(make_update_text_area_message(&context.editor));
                 queue.push(make_update_bottom_bar_message(&context.editor));
             }
-        } else if matches!(
-            message,
-            StartSearch
-                | FinishSearch
-                | CancelSearch
-                | SetSearchPattern(_)
-                | SetSearchDirection(_)
-                | NextSearchResult
-        ) {
-            match message {
-                StartSearch => context.editor.start_search(),
-                FinishSearch => {
-                    context.editor.finish_search();
-                    queue.push(make_update_text_area_message(&context.editor));
-                    queue.push(make_update_bottom_bar_message(&context.editor));
+            Open(path) => {
+                if let Err(_) = context.editor.open_file(&path) {
+                    queue.push(OPEN_FAILURE_NOTIFICATION);
+                } else {
+                    update_text_area_and_bottom_bar(queue, &context.editor);
                 }
-                CancelSearch => {
-                    context.editor.cancel_search();
-                    queue.push(make_update_text_area_message(&context.editor));
-                    queue.push(make_update_bottom_bar_message(&context.editor));
-                }
-                SetSearchPattern(pattern) => {
-                    context.editor.set_search_pattern(&pattern);
-                    queue.push(make_update_text_area_message(&context.editor));
-                    queue.push(make_update_bottom_bar_message(&context.editor));
-                }
-                SetSearchDirection(forward) => {
-                    context.editor.set_search_direction(forward);
-                }
-                NextSearchResult => {
-                    context.editor.next_search_result();
-                    queue.push(make_update_text_area_message(&context.editor));
-                    queue.push(make_update_bottom_bar_message(&context.editor));
-                }
-                _ => unreachable!(),
             }
-        } else {
-            match message {
-                MoveCursorUp => context.editor.move_cursor_up(),
-                MoveCursorDown => context.editor.move_cursor_down(),
-                MoveCursorLeft => context.editor.move_cursor_left(),
-                MoveCursorRight => context.editor.move_cursor_right(),
-                MoveCursorToLineStart => context.editor.move_cursor_to_line_start(),
-                MoveCursorToLineEnd => context.editor.move_cursor_to_line_end(),
-                MoveOneViewUp => context.editor.move_one_view_up(),
-                MoveOneViewDown => context.editor.move_one_view_down(),
-                MoveCursorToBufferTop => context.editor.move_cursor_to_buffer_top(),
-                MoveCursorToBufferBottom => context.editor.move_cursor_to_buffer_bottom(),
-                RemoveCharBehind => context.editor.remove_char_behind(),
-                RemoveCharInFront => context.editor.remove_char_in_front(),
-                InsertChar(c) => context.editor.insert_char(c.clone()),
-                InsertLine => context.editor.insert_line(),
-                _ => unreachable!(),
-            };
-
-            queue.push(make_update_text_area_message(&context.editor));
-            queue.push(make_update_bottom_bar_message(&context.editor));
+            StartSearch => context.editor.start_search(),
+            FinishSearch => {
+                context.editor.finish_search();
+                update_text_area_and_bottom_bar(queue, &context.editor);
+            }
+            CancelSearch => {
+                context.editor.cancel_search();
+                update_text_area_and_bottom_bar(queue, &context.editor);
+            }
+            SetSearchPattern(pattern) => {
+                context.editor.set_search_pattern(&pattern);
+                update_text_area_and_bottom_bar(queue, &context.editor);
+            }
+            SetSearchDirection(forward) => {
+                context.editor.set_search_direction(forward);
+            }
+            NextSearchResult => {
+                context.editor.next_search_result();
+                update_text_area_and_bottom_bar(queue, &context.editor);
+            }
         }
 
         Ok(())
     }
+}
+
+fn update_text_area_and_bottom_bar(queue: &mut MessageQueue, editor: &Editor) {
+    queue.push(make_update_text_area_message(editor));
+    queue.push(make_update_bottom_bar_message(editor));
 }
 
 fn make_update_bottom_bar_message(editor: &Editor) -> BottomBarMessage {
