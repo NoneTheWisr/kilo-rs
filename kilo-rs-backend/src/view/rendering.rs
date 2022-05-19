@@ -1,22 +1,57 @@
 use std::iter;
 
+use syntect::easy::HighlightLines;
+use syntect::highlighting::{Style, ThemeSet};
+use syntect::parsing::SyntaxSet;
+use syntect::util::as_24_bit_terminal_escaped;
+
 use crate::core::Buffer;
 
 const TAB_STOP: usize = 8;
 
 pub struct RenderedBuffer {
     lines: Vec<String>,
+    extension: Option<String>,
+    highlighting: Option<Vec<Vec<(Style, String)>>>,
 }
 
 impl From<&Buffer> for RenderedBuffer {
     fn from(buffer: &Buffer) -> Self {
+        let lines: Vec<String> = buffer.lines().map(|line| render_line(line)).collect();
+        let extension: Option<String> = match buffer.file_path().cloned() {
+            Some(path) => path.rsplit_once('.').map(|split| split.1.into()),
+            None => None,
+        };
+
+        let highlighting = extension.clone().map(|extension| {
+            let ps = SyntaxSet::load_defaults_nonewlines();
+            let ts = ThemeSet::load_defaults();
+            let syntax = ps.find_syntax_by_extension("rs").unwrap();
+            let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
+
+            lines
+                .iter()
+                .map(|line| {
+                    h.highlight_line(line, &ps)
+                        .unwrap()
+                        .into_iter()
+                        .map(|tuple| (tuple.0, tuple.1.to_owned()))
+                        .collect()
+                })
+                .collect()
+        });
+
         Self {
-            lines: buffer.lines().map(|line| render_line(line)).collect(),
+            lines,
+            extension,
+            highlighting,
         }
     }
 }
 
 impl RenderedBuffer {
+    pub fn highlight(&mut self) {}
+
     pub fn update_line(&mut self, line_number: usize, buffer: &Buffer) {
         self.lines[line_number] = render_line(buffer.get_line(line_number));
     }
@@ -31,12 +66,37 @@ impl RenderedBuffer {
     }
 
     pub fn get_view(&self, line: usize, col: usize, width: usize, height: usize) -> Vec<String> {
-        self.lines
-            .iter()
-            .skip(line)
-            .take(height)
-            .map(|line| line.chars().skip(col).take(width).collect())
-            .collect()
+        if let Some(highlighting) = &self.highlighting {
+            highlighting
+                .iter()
+                .skip(line)
+                .take(height)
+                .map(|ranges| {
+                    as_24_bit_terminal_escaped(
+                        ranges
+                            .into_iter()
+                            .map(|thing| (thing.0, thing.1.as_str()))
+                            .collect::<Vec<(_, &str)>>()
+                            .as_slice(),
+                        true,
+                    )
+                })
+                .map(|line| line.chars().skip(col).take(width).collect())
+                .collect()
+        } else {
+            self.lines
+                .iter()
+                .skip(line)
+                .take(height)
+                .map(|line| line.chars().skip(col).take(width).collect())
+                .collect()
+        }
+        // self.lines
+        //     .iter()
+        //     .skip(line)
+        //     .take(height)
+        //     .map(|line| line.chars().skip(col).take(width).collect())
+        //     .collect()
     }
 
     pub fn eol_col(&self, line: usize) -> usize {
