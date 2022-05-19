@@ -15,6 +15,11 @@ impl Location {
     }
 }
 
+pub struct Span {
+    pub start: Location,
+    pub end: Location,
+}
+
 pub struct Buffer {
     file_path: Option<String>,
     lines: Vec<String>,
@@ -112,16 +117,22 @@ impl Buffer {
         self.dirty = true;
     }
 
-    pub fn find(&self, pattern: &str, forward: bool, start: Location) -> Option<Location> {
+    pub fn find(&self, pattern: &str, forward: bool, start: Location) -> Option<Span> {
         if forward {
             let ahead = self.lines[start.line].get(start.col + 1..);
             if let Some(col) = ahead.map_or(None, |ahead| ahead.find(pattern)) {
-                return Some(Location::new(start.line, start.col + 1 + col));
+                return Some(Span {
+                    start: Location::new(start.line, start.col + 1 + col),
+                    end: Location::new(start.line, start.col + 1 + col + pattern.len()),
+                });
             }
         } else {
             let ahead = self.lines[start.line].get(..start.col);
             if let Some(col) = ahead.map_or(None, |ahead| ahead.rfind(pattern)) {
-                return Some(Location::new(start.line, col));
+                return Some(Span {
+                    start: Location::new(start.line, col),
+                    end: Location::new(start.line, col + pattern.len()),
+                });
             }
         }
 
@@ -133,7 +144,12 @@ impl Buffer {
                 .cycle()
                 .skip(start.line + 1)
                 .take(self.lines.len().saturating_sub(1));
-            lines.find_map(|(num, line)| line.find(pattern).map(|col| Location::new(num, col)))
+            lines.find_map(|(num, line)| {
+                line.find(pattern).map(|col| Span {
+                    start: Location::new(num, col),
+                    end: Location::new(num, col + pattern.len()),
+                })
+            })
         } else {
             let mut lines = self
                 .lines
@@ -143,7 +159,12 @@ impl Buffer {
                 .cycle()
                 .skip(self.lines.len() - start.line)
                 .take(self.lines.len().saturating_sub(1));
-            lines.find_map(|(num, line)| line.rfind(pattern).map(|col| Location::new(num, col)))
+            lines.find_map(|(num, line)| {
+                line.rfind(pattern).map(|col| Span {
+                    start: Location::new(num, col),
+                    end: Location::new(num, col + pattern.len()),
+                })
+            })
         };
         if result.is_some() {
             return result;
@@ -152,12 +173,18 @@ impl Buffer {
         if forward {
             let behind = self.lines[start.line].get(..start.col);
             if let Some(col) = behind.map_or(None, |ahead| ahead.find(pattern)) {
-                return Some(Location::new(start.line, col));
+                return Some(Span {
+                    start: Location::new(start.line, col),
+                    end: Location::new(start.line, col + pattern.len()),
+                });
             }
         } else {
             let behind = self.lines[start.line].get(start.col + 1..);
             if let Some(col) = behind.map_or(None, |ahead| ahead.rfind(pattern)) {
-                return Some(Location::new(start.line, start.col + 1 + col));
+                return Some(Span {
+                    start: Location::new(start.line, start.col + 1 + col),
+                    end: Location::new(start.line, start.col + 1 + col + pattern.len()),
+                });
             }
         }
 

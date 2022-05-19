@@ -1,7 +1,7 @@
 use std::cmp;
 use std::iter::{once, repeat};
 
-use crate::core::{Buffer, Location};
+use crate::core::{Buffer, Location, Span};
 use crate::view::{rendering::RenderedBuffer, ViewGeometry};
 
 use anyhow::Result;
@@ -320,8 +320,8 @@ impl Editor {
         let forward = state.forward;
         let pattern = state.pattern.as_ref().unwrap();
 
-        if let Some(location) = self.buffer.find(pattern, forward, cursor) {
-            self.move_cursor_to_location(location);
+        if let Some(Span { start, .. }) = self.buffer.find(pattern, forward, cursor) {
+            self.move_cursor_to_location(start);
         }
     }
 
@@ -334,8 +334,8 @@ impl Editor {
         let forward = state.forward;
         let pattern = state.pattern.as_ref().unwrap();
 
-        if let Some(location) = self.buffer.find(pattern, forward, self.cursor) {
-            self.move_cursor_to_location(location);
+        if let Some(Span { start, .. }) = self.buffer.find(pattern, forward, self.cursor) {
+            self.move_cursor_to_location(start);
         }
     }
 
