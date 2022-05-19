@@ -224,10 +224,10 @@ impl BottomBarComponent {
                     _ => {}
                 },
                 ConfirmQuit => match (modifiers, code) {
-                    (_, Char('y') | Char('q')) => {
+                    (_, Char('q')) => {
                         queue.push(AppMessage::Quit);
                     }
-                    (_, Char('n') | Esc) => {
+                    (_, Esc) => {
                         self.prompt_info = None;
                         queue.push(Focus::TextArea);
                     }
@@ -249,7 +249,11 @@ impl PromptInfo {
         Self {
             message: match &prompt_kind {
                 PromptKind::SaveAs => "[Save As] Enter file path:".into(),
-                PromptKind::ConfirmQuit => "[Warning] The buffer has unsaved changes. Are you sure you want to quit [y(q)\\n]?".into(),
+                PromptKind::ConfirmQuit => concat!(
+                    "[Warning] Buffer has unsaved changes. ",
+                    "Are you sure you want to quit [q/Esc]?"
+                )
+                .into(),
                 PromptKind::Open => "[Open] Enter file path:".into(),
                 PromptKind::Find => "[Find]:".into(),
             },
