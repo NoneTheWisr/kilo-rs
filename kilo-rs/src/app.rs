@@ -87,18 +87,13 @@ impl App {
         Ok(ShouldQuit::No)
     }
 
-    pub fn render(&self, writer: &mut impl Write) -> Result<()> {
-        self.text_area.render(writer)?;
-        self.bottom_bar.render(writer)?;
+    pub fn render(&self, writer: &mut impl Write) -> Result<Option<Cursor>> {
+        let cursors = (self.text_area.render(writer)?, self.bottom_bar.render(writer)?);
 
-        Ok(())
-    }
-
-    pub fn cursor(&self) -> Option<Cursor> {
-        match self.focus {
-            Focus::TextArea => self.text_area.cursor(),
-            Focus::BottomBar => self.bottom_bar.cursor(),
-        }
+        Ok(match self.focus {
+            Focus::TextArea => cursors.0,
+            Focus::BottomBar => cursors.1,
+        })
     }
 
     #[rustfmt::skip]

@@ -46,7 +46,7 @@ impl TextAreaComponent {
         }
     }
 
-    pub fn render(&self, writer: &mut impl Write) -> Result<()> {
+    pub fn render(&self, writer: &mut impl Write) -> Result<Option<Cursor>> {
         queue!(writer, MoveTo(0, 0))?;
 
         for line in &self.lines {
@@ -60,11 +60,7 @@ impl TextAreaComponent {
             queue!(writer, Print(self.get_char_at_cursor().negative()))?;
         }
 
-        Ok(())
-    }
-
-    pub fn cursor(&self) -> Option<Cursor> {
-        Some(self.cursor)
+        Ok(Some(self.cursor))
     }
 
     pub fn update(&mut self, message: TextAreaMessage) -> Result<()> {

@@ -88,14 +88,19 @@ impl BottomBarComponent {
         }
     }
 
-    pub fn render(&self, writer: &mut impl Write) -> Result<()> {
+    pub fn render(&self, writer: &mut impl Write) -> Result<Option<Cursor>> {
         let view_width = self.rect.width() as usize;
 
-        let bar = if let Some(PromptInfo { message, input, .. }) = &self.prompt_info {
+        let (bar, cursor) = if let Some(PromptInfo { message, input, .. }) = &self.prompt_info {
             let message = format!("{message} {input}");
-            format!("{message:0$.1$}", view_width, view_width.saturating_sub(1))
+            let message = format!("{message:.0$}", view_width.saturating_sub(1));
+
+            let bar = format!("{message:0$}", view_width);
+            let cursor = Cursor::new(self.rect.top, message.len() as u16);
+
+            (bar, Some(cursor))
         } else if let Some(NotificationInfo { message, .. }) = &self.notification_info {
-            format!("{message:0$.0$}", view_width)
+            (format!("{message:0$.0$}", view_width), None)
         } else {
             let StatusInfo {
                 buffer_name,
@@ -109,17 +114,19 @@ impl BottomBarComponent {
             let right_part = format!("{}/{}", cursor_line, line_count);
 
             let total_width = left_part.len() + right_part.len();
-            if total_width <= view_width {
+            let bar = if total_width <= view_width {
                 left_part + &" ".repeat(view_width - total_width) + &right_part
             } else {
                 format!("{left_part:0$.0$}", view_width)
-            }
+            };
+
+            (bar, None)
         };
 
         queue!(writer, MoveTo(self.rect.left, self.rect.top))?;
         queue!(writer, PrintStyledContent(bar.negative()))?;
 
-        Ok(())
+        Ok(cursor)
     }
 
     pub fn update(&mut self, message: BottomBarMessage, queue: &mut MessageQueue) -> Result<()> {
@@ -151,19 +158,6 @@ impl BottomBarComponent {
         }
 
         Ok(())
-    }
-
-    pub fn cursor(&self) -> Option<Cursor> {
-        if let Some(PromptInfo { message, input, .. }) = &self.prompt_info {
-            let message = format!("{message} {input}");
-
-            let width = self.rect.width() as usize;
-            let status_bar = format!("{message:.0$}", width.saturating_sub(1));
-
-            Some(Cursor::new(self.rect.top, status_bar.len() as u16))
-        } else {
-            None
-        }
     }
 
     pub fn process_event(&mut self, event: KeyEvent, queue: &mut MessageQueue) -> Result<()> {

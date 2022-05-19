@@ -1,6 +1,6 @@
 use std::io::{self, BufWriter, Stdout, Write};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::event::{self, Event};
@@ -79,12 +79,13 @@ impl AppRunner {
     fn render(&mut self) -> Result<()> {
         queue!(self.stdout, Hide)?;
 
-        self.app.render(&mut self.stdout)?;
+        let cursor = self.app.render(&mut self.stdout)?;
 
-        let cursor = self.app.cursor().context("failed to get cursor location")?;
-        queue!(self.stdout, MoveToCursor(cursor))?;
+        if let Some(cursor) = cursor {
+            queue!(self.stdout, MoveToCursor(cursor))?;
+            queue!(self.stdout, Show)?;
+        }
 
-        queue!(self.stdout, Show)?;
         self.stdout.flush()?;
 
         Ok(())
