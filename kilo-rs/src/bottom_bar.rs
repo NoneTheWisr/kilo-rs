@@ -15,12 +15,12 @@ use crate::shared::Rectangle;
 use crate::term_utils::Cursor;
 
 pub enum BottomBarMessage {
-    UpdateStatus(StatusUpdate),
+    UpdateStatus(StatusUpdateMessage),
     DisplayPrompt(PromptKind),
     DisplayNotification(NotificationKind),
 }
 
-pub struct StatusUpdate {
+pub struct StatusUpdateMessage {
     pub file_name: Option<String>,
     pub dirty: bool,
     pub cursor_line: usize,
@@ -68,15 +68,19 @@ const NOTIFICATION_DURATION: f32 = 1.0;
 
 impl BottomBarComponent {
     pub fn new(rect: Rectangle, editor: &Editor) -> Self {
+        let file_name = editor.get_file_name().cloned();
+
+        let buffer_name = buffer_name(file_name);
+        let dirty = editor.is_buffer_dirty();
+        let cursor_line = editor.get_view_cursor().line + 1;
+        let line_count = editor.get_buffer_line_count();
+
         Self {
             status_info: StatusInfo {
-                buffer_name: editor
-                    .get_file_name()
-                    .cloned()
-                    .unwrap_or("[Scratch]".into()),
-                dirty: editor.is_buffer_dirty(),
-                cursor_line: editor.get_view_cursor().line + 1,
-                line_count: editor.get_buffer_line_count(),
+                buffer_name,
+                dirty,
+                cursor_line,
+                line_count,
             },
             prompt_info: None,
             notification_info: None,
@@ -85,39 +89,35 @@ impl BottomBarComponent {
     }
 
     pub fn render(&self, writer: &mut impl Write) -> Result<()> {
-        if let Some(PromptInfo { message, input, .. }) = &self.prompt_info {
+        let view_width = self.rect.width() as usize;
+
+        let bar = if let Some(PromptInfo { message, input, .. }) = &self.prompt_info {
             let message = format!("{message} {input}");
-
-            let width = self.rect.width() as usize;
-            let status_bar = format!("{message:0$.1$}", width, width.saturating_sub(1));
-
-            queue!(writer, MoveTo(self.rect.left, self.rect.top))?;
-            queue!(writer, PrintStyledContent(status_bar.negative()))?;
+            format!("{message:0$.1$}", view_width, view_width.saturating_sub(1))
         } else if let Some(NotificationInfo { message, .. }) = &self.notification_info {
-            let width = self.rect.width() as usize;
-            let status_bar = format!("{message:0$.0$}", width);
-
-            queue!(writer, MoveTo(self.rect.left, self.rect.top))?;
-            queue!(writer, PrintStyledContent(status_bar.negative()))?;
+            format!("{message:0$.0$}", view_width)
         } else {
-            let dirty = if self.status_info.dirty { "[+]" } else { "" };
-            let left_part = format!("{:.20}{dirty}", self.status_info.buffer_name,);
-            let right_part = format!(
-                "{}/{}",
-                self.status_info.cursor_line, self.status_info.line_count,
-            );
-            let total_len = left_part.len() + right_part.len();
+            let StatusInfo {
+                buffer_name,
+                dirty,
+                cursor_line,
+                line_count,
+            } = &self.status_info;
 
-            let width = self.rect.width() as usize;
-            let bottom_bar = if total_len <= width {
-                left_part + &" ".repeat(width - total_len) + &right_part
+            let dirty = if *dirty { "[+]" } else { "" };
+            let left_part = format!("{:.20}{dirty}", buffer_name);
+            let right_part = format!("{}/{}", cursor_line, line_count);
+
+            let total_width = left_part.len() + right_part.len();
+            if total_width <= view_width {
+                left_part + &" ".repeat(view_width - total_width) + &right_part
             } else {
-                format!("{left_part:0$.0$}", width)
-            };
+                format!("{left_part:0$.0$}", view_width)
+            }
+        };
 
-            queue!(writer, MoveTo(self.rect.left, self.rect.top))?;
-            queue!(writer, PrintStyledContent(bottom_bar.negative()))?;
-        }
+        queue!(writer, MoveTo(self.rect.left, self.rect.top))?;
+        queue!(writer, PrintStyledContent(bar.negative()))?;
 
         Ok(())
     }
@@ -135,7 +135,7 @@ impl BottomBarComponent {
             UpdateStatus(status) => {
                 self.status_info.cursor_line = status.cursor_line;
                 self.status_info.line_count = status.line_count;
-                self.status_info.buffer_name = status.file_name.unwrap_or("[Scratch]".into());
+                self.status_info.buffer_name = buffer_name(status.file_name);
                 self.status_info.dirty = status.dirty;
             }
             DisplayPrompt(prompt_kind) => {
@@ -246,14 +246,18 @@ impl BottomBarComponent {
     }
 }
 
+fn buffer_name(file_name: Option<String>) -> String {
+    file_name.unwrap_or("[Scratch]".into())
+}
+
 impl PromptInfo {
     fn new(prompt_kind: PromptKind) -> Self {
         Self {
             message: match &prompt_kind {
-                PromptKind::SaveAs => SAVE_AS_MESSAGE.into(),
-                PromptKind::ConfirmQuit => CONFIRM_QUIT_MESSAGE.into(),
-                PromptKind::Open => OPEN_MESSAGE.into(),
-                PromptKind::Find => FIND_MESSAGE.into(),
+                PromptKind::SaveAs => "[Save As] Enter file path:".into(),
+                PromptKind::ConfirmQuit => "[Warning] The buffer has unsaved changes. Are you sure you want to quit [y(q)\\n]?".into(),
+                PromptKind::Open => "[Open] Enter file path:".into(),
+                PromptKind::Find => "[Find]:".into(),
             },
             kind: prompt_kind,
             input: String::new(),
@@ -266,19 +270,10 @@ impl NotificationInfo {
         use NotificationKind::*;
         Self {
             message: match notification_kind {
-                SaveSuccess => SAVE_SUCCESS_MESSAGE.into(),
-                OpenFailure => OPEN_FAILURE_MESSAGE.into(),
+                SaveSuccess => "[Success] The buffer has been saved".into(),
+                OpenFailure => "[Fail] Couldn't open the file".into(),
             },
             start: Instant::now(),
         }
     }
 }
-
-const SAVE_AS_MESSAGE: &str = "[Save As] Enter file path:";
-const OPEN_MESSAGE: &str = "[Open] Enter file path:";
-const FIND_MESSAGE: &str = "[Find]:";
-const CONFIRM_QUIT_MESSAGE: &str =
-    "[Warning] The buffer has unsaved changes. Are you sure you want to quit [y(q)\\n]?";
-
-const SAVE_SUCCESS_MESSAGE: &str = "[Success] The buffer has been saved";
-const OPEN_FAILURE_MESSAGE: &str = "[Fail] Couldn't open the file";

@@ -7,7 +7,7 @@ use crate::{
         BottomBarMessage::{
             self, DisplayNotification, DisplayPrompt, UpdateStatus as BottomBarUpdateMessage,
         },
-        NotificationKind, PromptKind, StatusUpdate as BottomBarUpdate,
+        NotificationKind, PromptKind, StatusUpdateMessage as BottomBarUpdate,
     },
     runner::MessageQueue,
     text_area::{
