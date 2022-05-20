@@ -93,7 +93,7 @@ impl RenderedBuffer {
                         .cloned()
                         .collect();
                     if let Some(range) = styles.last_mut() {
-                        range.1.end = line.len();
+                        range.1.end = range.1.end.clamp(0, line.len());
                     }
                     (line, styles)
                 })
