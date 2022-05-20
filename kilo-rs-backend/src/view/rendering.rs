@@ -26,10 +26,10 @@ impl From<&Buffer> for RenderedBuffer {
 
         let highlighting = extension.clone().map(|extension| {
             let ps = SyntaxSet::load_defaults_nonewlines();
-            let ts = ThemeSet::load_defaults();
+            let ts = ThemeSet::load_from_folder("themes").unwrap();
             let syntax = ps.find_syntax_by_extension(&extension).unwrap();
 
-            let theme = &ts.themes["base16-ocean.dark"];
+            let theme = &ts.themes["gruvbox"];
 
             let highlighter = Highlighter::new(theme);
             let mut highlight_state = HighlightState::new(&highlighter, ScopeStack::new());
