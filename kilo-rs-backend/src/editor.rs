@@ -84,6 +84,8 @@ impl Editor {
     pub fn open_file(&mut self, file_path: &str) -> Result<()> {
         self.buffer = Buffer::from_file(file_path)?;
         self.rendered_buffer = RenderedBuffer::from(&self.buffer);
+        self.view.line = 0;
+        self.view.col = 0;
         self.cursor = Location::new(0, 0);
 
         Ok(())
