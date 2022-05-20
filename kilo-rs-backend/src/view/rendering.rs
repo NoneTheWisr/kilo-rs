@@ -1,9 +1,10 @@
-use std::iter;
+use std::iter::{self, zip};
+use std::ops::Range;
 
-use syntect::easy::HighlightLines;
-use syntect::highlighting::{Style, ThemeSet};
+use syntect::highlighting::ThemeSet;
+use syntect::highlighting::{HighlightState, Highlighter, RangedHighlightIterator, Style};
 use syntect::parsing::SyntaxSet;
-use syntect::util::as_24_bit_terminal_escaped;
+use syntect::parsing::{ParseState, ScopeStack};
 
 use crate::core::Buffer;
 
@@ -12,7 +13,7 @@ const TAB_STOP: usize = 8;
 pub struct RenderedBuffer {
     lines: Vec<String>,
     extension: Option<String>,
-    highlighting: Option<Vec<Vec<(Style, String)>>>,
+    highlighting: Option<Vec<Vec<(Style, Range<usize>)>>>,
 }
 
 impl From<&Buffer> for RenderedBuffer {
@@ -26,17 +27,25 @@ impl From<&Buffer> for RenderedBuffer {
         let highlighting = extension.clone().map(|extension| {
             let ps = SyntaxSet::load_defaults_nonewlines();
             let ts = ThemeSet::load_defaults();
-            let syntax = ps.find_syntax_by_extension("rs").unwrap();
-            let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
+            let syntax = ps.find_syntax_by_extension(&extension).unwrap();
+
+            let theme = &ts.themes["base16-ocean.dark"];
+
+            let highlighter = Highlighter::new(theme);
+            let mut highlight_state = HighlightState::new(&highlighter, ScopeStack::new());
+            let mut parse_state = ParseState::new(syntax);
 
             lines
                 .iter()
                 .map(|line| {
-                    h.highlight_line(line, &ps)
-                        .unwrap()
-                        .into_iter()
-                        .map(|tuple| (tuple.0, tuple.1.to_owned()))
-                        .collect()
+                    let ops = parse_state.parse_line(&line, &ps).unwrap();
+                    let iter = RangedHighlightIterator::new(
+                        &mut highlight_state,
+                        &ops[..],
+                        &line,
+                        &highlighter,
+                    );
+                    iter.map(|(style, _, range)| (style, range)).collect()
                 })
                 .collect()
         });
@@ -65,31 +74,41 @@ impl RenderedBuffer {
         self.lines.remove(line_number);
     }
 
-    pub fn get_view(&self, line: usize, col: usize, width: usize, height: usize) -> Vec<String> {
+    pub fn get_view(
+        &self,
+        line: usize,
+        col: usize,
+        width: usize,
+        height: usize,
+    ) -> (Vec<String>, Option<Vec<Vec<(Style, Range<usize>)>>>) {
         if let Some(highlighting) = &self.highlighting {
-            highlighting
-                .iter()
+            let (lines, styles) = zip(self.lines.iter(), highlighting.into_iter())
                 .skip(line)
                 .take(height)
-                .map(|ranges| {
-                    as_24_bit_terminal_escaped(
-                        ranges
-                            .into_iter()
-                            .map(|thing| (thing.0, thing.1.as_str()))
-                            .collect::<Vec<(_, &str)>>()
-                            .as_slice(),
-                        true,
-                    )
+                .map(|(line, styles)| {
+                    let line: String = line.chars().skip(col).take(width).collect();
+                    let mut styles: Vec<_> = styles
+                        .into_iter()
+                        .filter(|(_, range)| range.start < line.len())
+                        .cloned()
+                        .collect();
+                    if let Some(range) = styles.last_mut() {
+                        range.1.end = line.len();
+                    }
+                    (line, styles)
                 })
-                .map(|line| line.chars().skip(col).take(width).collect())
-                .collect()
+                .unzip();
+            (lines, Some(styles))
         } else {
-            self.lines
-                .iter()
-                .skip(line)
-                .take(height)
-                .map(|line| line.chars().skip(col).take(width).collect())
-                .collect()
+            (
+                self.lines
+                    .iter()
+                    .skip(line)
+                    .take(height)
+                    .map(|line| line.chars().skip(col).take(width).collect())
+                    .collect(),
+                None,
+            )
         }
         // self.lines
         //     .iter()

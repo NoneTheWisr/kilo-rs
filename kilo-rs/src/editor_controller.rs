@@ -192,10 +192,13 @@ impl EditorControllerComponent {
     }
 
     fn make_update_text_area_message(&self) -> TextAreaMessage {
+        let (lines, highlighting) = self.editor.get_view_contents();
         TextAreaUpdateMessage(TextAreaUpdate {
-            lines: Box::new(self.editor.get_view_contents()),
+            lines: Box::new(lines),
             cursor: self.editor.get_view_cursor(),
             search_mode: self.editor.is_search_mode_active(),
+            highlighting: highlighting
+                .map(|iter| Box::new(iter) as Box<dyn Iterator<Item = Vec<_>> + Send>),
         })
     }
 }

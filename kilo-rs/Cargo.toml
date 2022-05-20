@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.56"
 crossterm = "0.23.2"
+syntect = "5.0.0"
 kilo-rs-backend = { path = "../kilo-rs-backend", version = "0.1.0" }

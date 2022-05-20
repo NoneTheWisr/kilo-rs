@@ -1,6 +1,11 @@
 use std::io::Write;
+use std::iter::zip;
+use std::ops::Range;
 
 use anyhow::Result;
+
+use syntect::highlighting::Style;
+use syntect::util::as_24_bit_terminal_escaped;
 
 use crossterm::cursor::MoveTo;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -23,10 +28,12 @@ pub struct UpdateMessage {
     pub lines: Box<dyn Iterator<Item = String> + Send>,
     pub cursor: kilo_rs_backend::core::Location,
     pub search_mode: bool,
+    pub highlighting: Option<Box<dyn Iterator<Item = Vec<(Style, Range<usize>)>> + Send>>,
 }
 
 pub struct TextAreaComponent {
     lines: Vec<String>,
+    highlighting: Option<Vec<Vec<(Style, Range<usize>)>>>,
     cursor: Cursor,
     search_mode: bool,
 }
@@ -35,7 +42,10 @@ impl TextAreaComponent {
     pub fn new(editor: &Editor) -> Self {
         let Location { line, col } = editor.get_view_cursor();
 
-        let lines = editor.get_view_contents().collect();
+        let (lines, highlighting) = editor.get_view_contents();
+        let lines = lines.collect();
+        let highlighting = highlighting.map(Iterator::collect);
+
         let cursor = Cursor::new(line as u16, col as u16);
         let search_mode = editor.is_search_mode_active();
 
@@ -43,16 +53,32 @@ impl TextAreaComponent {
             lines,
             cursor,
             search_mode,
+            highlighting,
         }
     }
 
     pub fn render(&self, writer: &mut impl Write) -> Result<Option<Cursor>> {
         queue!(writer, MoveTo(0, 0))?;
 
-        for line in &self.lines {
-            queue!(writer, Print(line))?;
-            queue!(writer, Clear(UntilNewLine))?;
-            queue!(writer, Print("\r\n"))?;
+        if let Some(highlighting) = &self.highlighting {
+            for (line, highlighting) in zip(&self.lines, highlighting) {
+                let whatever: Vec<_> = highlighting
+                    .into_iter()
+                    .map(|&(style, Range { start, end })| (style, &line.as_str()[start..end]))
+                    .collect();
+                queue!(
+                    writer,
+                    Print(as_24_bit_terminal_escaped(&whatever[..], true))
+                )?;
+                queue!(writer, Clear(UntilNewLine))?;
+                queue!(writer, Print("\r\n"))?;
+            }
+        } else {
+            for line in &self.lines {
+                queue!(writer, Print(line))?;
+                queue!(writer, Clear(UntilNewLine))?;
+                queue!(writer, Print("\r\n"))?;
+            }
         }
 
         if self.search_mode {
@@ -70,6 +96,7 @@ impl TextAreaComponent {
         let Location { line, col } = message.cursor;
         self.cursor = Cursor::new(line as u16, col as u16);
         self.search_mode = message.search_mode;
+        self.highlighting = message.highlighting.map(Iterator::collect);
 
         Ok(())
     }

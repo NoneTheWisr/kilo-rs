@@ -1,10 +1,11 @@
 use std::cmp;
-use std::iter::{once, repeat};
+use std::ops::Range;
 
 use crate::core::{Buffer, Location, Span};
 use crate::view::{rendering::RenderedBuffer, ViewGeometry};
 
 use anyhow::Result;
+use syntect::highlighting::Style;
 
 pub struct Editor {
     buffer: Buffer,
@@ -58,19 +59,27 @@ impl Editor {
         self.view.height
     }
 
-    pub fn get_view_contents(&self) -> impl Iterator<Item = String> {
+    pub fn get_view_contents(
+        &self,
+    ) -> (
+        impl Iterator<Item = String>,
+        Option<impl Iterator<Item = Vec<(Style, Range<usize>)>>>,
+    ) {
         let ViewGeometry {
             line,
             col,
             width,
             height,
         } = self.view;
-        let filler = once("~").chain(repeat(" ")).take(width).collect();
-        self.rendered_buffer
-            .get_view(line, col, width, height)
-            .into_iter()
-            .chain(repeat(filler))
-            .take(height)
+        // TODO: Reimplement this
+        // let filler = once("~").chain(repeat(" ")).take(width).collect();
+        // self.rendered_buffer
+        //     .get_view(line, col, width, height)
+        //     .into_iter()
+        //     .chain(repeat(filler))
+        //     .take(height)
+        let tuple = self.rendered_buffer.get_view(line, col, width, height);
+        (tuple.0.into_iter(), tuple.1.map(|vec| vec.into_iter()))
     }
 
     pub fn get_file_name(&self) -> Option<&String> {
