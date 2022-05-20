@@ -417,7 +417,6 @@ impl Editor {
     }
 
     fn is_cursor_at_eol_col(&self) -> bool {
-        eprintln!("{}", self.rendered_buffer.eol_col(self.cursor.line));
         self.cursor.col == self.rendered_buffer.eol_col(self.cursor.line)
     }
 
