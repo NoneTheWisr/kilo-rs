@@ -4,13 +4,12 @@ use std::ops::Range;
 
 use anyhow::Result;
 
-use syntect::highlighting::Style;
-use syntect::util::as_24_bit_terminal_escaped;
+use syntect::highlighting::{self, Style};
 
 use crossterm::cursor::MoveTo;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crossterm::queue;
-use crossterm::style::{Print, Stylize};
+use crossterm::style::{Color, ContentStyle, Print, StyledContent, Stylize};
 use crossterm::terminal::{Clear, ClearType::UntilNewLine};
 
 use kilo_rs_backend::core::Location;
@@ -62,14 +61,7 @@ impl TextAreaComponent {
 
         if let Some(highlighting) = &self.highlighting {
             for (line, highlighting) in zip(&self.lines, highlighting) {
-                let whatever: Vec<_> = highlighting
-                    .into_iter()
-                    .map(|&(style, Range { start, end })| (style, &line.as_str()[start..end]))
-                    .collect();
-                queue!(
-                    writer,
-                    Print(as_24_bit_terminal_escaped(&whatever[..], true))
-                )?;
+                render_styled_line(writer, line, highlighting)?;
                 queue!(writer, Clear(UntilNewLine))?;
                 queue!(writer, Print("\r\n"))?;
             }
@@ -143,4 +135,53 @@ impl TextAreaComponent {
             .nth(self.cursor.col as usize)
             .unwrap()
     }
+}
+
+fn render_styled_line(
+    writer: &mut impl Write,
+    line: &str,
+    styles: &Vec<(Style, Range<usize>)>,
+) -> Result<()> {
+    // Taken from syntect
+    fn blend_fg_color(fg: highlighting::Color, bg: highlighting::Color) -> highlighting::Color {
+        if fg.a == 0xff {
+            return fg;
+        }
+        let ratio = fg.a as u32;
+        let r = (fg.r as u32 * ratio + bg.r as u32 * (255 - ratio)) / 255;
+        let g = (fg.g as u32 * ratio + bg.g as u32 * (255 - ratio)) / 255;
+        let b = (fg.b as u32 * ratio + bg.b as u32 * (255 - ratio)) / 255;
+        highlighting::Color {
+            r: r as u8,
+            g: g as u8,
+            b: b as u8,
+            a: 255,
+        }
+    }
+
+    fn convert_color(color: highlighting::Color) -> Color {
+        Color::Rgb {
+            r: color.r,
+            g: color.g,
+            b: color.b,
+        }
+    }
+
+    for &(style, Range { start, end }) in styles {
+        let part = &line[start..end];
+        let fg = blend_fg_color(style.foreground, style.background);
+        let bg = style.background;
+
+        queue!(
+            writer,
+            Print(StyledContent::new(
+                ContentStyle::new()
+                    .with(convert_color(fg))
+                    .on(convert_color(bg)),
+                part,
+            ))
+        )?;
+    }
+
+    Ok(())
 }
