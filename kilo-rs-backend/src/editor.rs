@@ -45,6 +45,10 @@ impl Editor {
         self.view.width
     }
 
+    pub fn get_view_height(&self) -> usize {
+        self.view.height
+    }
+
     pub fn get_view_contents(&self) -> impl Iterator<Item = String> {
         let ViewGeometry {
             line,
@@ -156,6 +160,8 @@ impl Editor {
     }
 
     pub fn insert_line(&mut self) {
+        let should_move_view = self.is_cursor_at_view_bottom();
+
         if self.is_cursor_at_line_start() {
             self.buffer.insert_line(self.cursor.line);
             self.rendered_buffer
@@ -175,6 +181,10 @@ impl Editor {
                 .insert_line(self.cursor.line + 1, &self.buffer);
             self.move_cursor_down_unchecked();
             self.move_cursor_to_line_start();
+        }
+
+        if should_move_view {
+            self.move_view_down_unchecked();
         }
     }
 
@@ -331,6 +341,7 @@ impl Editor {
     }
 
     fn is_cursor_at_eol_col(&self) -> bool {
+        eprintln!("{}", self.rendered_buffer.eol_col(self.cursor.line));
         self.cursor.col == self.rendered_buffer.eol_col(self.cursor.line)
     }
 
