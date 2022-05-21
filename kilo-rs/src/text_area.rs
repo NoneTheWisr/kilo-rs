@@ -5,7 +5,7 @@ use anyhow::Result;
 use crossterm::cursor::MoveTo;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crossterm::queue;
-use crossterm::style::Print;
+use crossterm::style::{Print, Stylize};
 use crossterm::terminal::{Clear, ClearType::UntilNewLine};
 
 use kilo_rs_backend::core::Location;
@@ -13,8 +13,7 @@ use kilo_rs_backend::editor::Editor;
 
 use crate::editor_controller::EditorControllerMessage;
 use crate::runner::MessageQueue;
-use crate::shared::SharedContext;
-use crate::term_utils::Cursor;
+use crate::term_utils::{Cursor, MoveToCursor};
 
 pub enum TextAreaMessage {
     Update(UpdateMessage),
@@ -23,22 +22,31 @@ pub enum TextAreaMessage {
 pub struct UpdateMessage {
     pub lines: Box<dyn Iterator<Item = String> + Send>,
     pub cursor: kilo_rs_backend::core::Location,
+    pub search_mode: bool,
 }
 
 pub struct TextAreaComponent {
     lines: Vec<String>,
     cursor: Cursor,
+    search_mode: bool,
 }
 
 impl TextAreaComponent {
-    pub fn new(context: &SharedContext) -> Self {
+    pub fn new(editor: &Editor) -> Self {
+        let Location { line, col } = editor.get_view_cursor();
+
+        let lines = editor.get_view_contents().collect();
+        let cursor = Cursor::new(line as u16, col as u16);
+        let search_mode = editor.is_search_mode_active();
+
         Self {
-            lines: get_editor_lines(&context.editor),
-            cursor: get_editor_cursor(&context.editor),
+            lines,
+            cursor,
+            search_mode,
         }
     }
 
-    pub fn render(&self, writer: &mut impl Write) -> Result<()> {
+    pub fn render(&self, writer: &mut impl Write) -> Result<Option<Cursor>> {
         queue!(writer, MoveTo(0, 0))?;
 
         for line in &self.lines {
@@ -47,11 +55,12 @@ impl TextAreaComponent {
             queue!(writer, Print("\r\n"))?;
         }
 
-        Ok(())
-    }
+        if self.search_mode {
+            queue!(writer, MoveToCursor(self.cursor))?;
+            queue!(writer, Print(self.get_char_at_cursor().negative()))?;
+        }
 
-    pub fn cursor(&self) -> Option<Cursor> {
-        Some(self.cursor)
+        Ok(Some(self.cursor))
     }
 
     pub fn update(&mut self, message: TextAreaMessage) -> Result<()> {
@@ -60,6 +69,7 @@ impl TextAreaComponent {
         self.lines = message.lines.collect();
         let Location { line, col } = message.cursor;
         self.cursor = Cursor::new(line as u16, col as u16);
+        self.search_mode = message.search_mode;
 
         Ok(())
     }
@@ -89,21 +99,21 @@ impl TextAreaComponent {
             (KM::NONE, Delete) => RemoveCharInFront,
 
             (KM::NONE, Char(c)) => InsertChar(c),
+            (KM::SHIFT, Char(c)) => InsertChar(c.to_ascii_uppercase()),
+
             (KM::NONE, Enter) => InsertLine,
 
             _ => return Ok(()),
         };
 
-        queue.push_front(message);
+        queue.push(message);
         Ok(())
     }
-}
 
-fn get_editor_lines(editor: &Editor) -> Vec<String> {
-    editor.get_view_contents().collect()
-}
-
-fn get_editor_cursor(editor: &Editor) -> Cursor {
-    let Location { line, col } = editor.get_view_cursor();
-    Cursor::new(line as u16, col as u16)
+    fn get_char_at_cursor(&self) -> char {
+        self.lines[self.cursor.row as usize]
+            .chars()
+            .nth(self.cursor.col as usize)
+            .unwrap()
+    }
 }

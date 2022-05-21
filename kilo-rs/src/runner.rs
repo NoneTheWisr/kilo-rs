@@ -1,7 +1,6 @@
-use std::collections::VecDeque;
 use std::io::{self, BufWriter, Stdout, Write};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use crossterm::cursor::{Hide, MoveTo, Show};
 use crossterm::event::{self, Event};
@@ -22,19 +21,19 @@ pub enum ShouldQuit {
     No,
 }
 
-pub struct MessageQueue(VecDeque<AppMessage>);
+pub struct MessageQueue(Vec<AppMessage>);
 
 impl MessageQueue {
     pub fn new() -> Self {
-        Self(VecDeque::new())
+        Self(Vec::new())
     }
 
-    pub fn pop_front(&mut self) -> Option<AppMessage> {
-        self.0.pop_front()
+    pub fn pop(&mut self) -> Option<AppMessage> {
+        self.0.pop()
     }
 
-    pub fn push_front(&mut self, message: impl Into<AppMessage>) {
-        self.0.push_front(message.into())
+    pub fn push(&mut self, message: impl Into<AppMessage>) {
+        self.0.push(message.into())
     }
 }
 
@@ -53,10 +52,10 @@ impl AppRunner {
         self.render()?;
 
         loop {
-            if let ShouldQuit::Yes = self.process_events()? {
+            self.process_events()?;
+            if let ShouldQuit::Yes = self.update()? {
                 break;
             }
-            self.update()?;
             self.render()?;
         }
 
@@ -68,32 +67,35 @@ impl AppRunner {
         Ok(())
     }
 
-    fn update(&mut self) -> Result<()> {
-        while let Some(message) = self.queue.pop_front() {
-            self.app.update(message, &mut self.queue)?;
+    fn update(&mut self) -> Result<ShouldQuit> {
+        while let Some(message) = self.queue.pop() {
+            if let ShouldQuit::Yes = self.app.update(message, &mut self.queue)? {
+                return Ok(ShouldQuit::Yes);
+            }
         }
-        Ok(())
+        Ok(ShouldQuit::No)
     }
 
     fn render(&mut self) -> Result<()> {
         queue!(self.stdout, Hide)?;
 
-        self.app.render(&mut self.stdout)?;
+        let cursor = self.app.render(&mut self.stdout)?;
 
-        let cursor = self.app.cursor().context("failed to get cursor location")?;
-        queue!(self.stdout, MoveToCursor(cursor))?;
+        if let Some(cursor) = cursor {
+            queue!(self.stdout, MoveToCursor(cursor))?;
+            queue!(self.stdout, Show)?;
+        }
 
-        queue!(self.stdout, Show)?;
         self.stdout.flush()?;
 
         Ok(())
     }
 
-    fn process_events(&mut self) -> Result<ShouldQuit> {
+    fn process_events(&mut self) -> Result<()> {
         if let Event::Key(event) = event::read()? {
-            self.app.process_event(event, &mut self.queue)
-        } else {
-            Ok(ShouldQuit::No)
+            self.app.process_event(event, &mut self.queue)?
         }
+
+        Ok(())
     }
 }
