@@ -186,7 +186,7 @@ impl EditorControllerComponent {
         BottomBarUpdateMessage(BottomBarUpdate {
             file_name: self.editor.get_file_name().cloned(),
             dirty: self.editor.is_buffer_dirty(),
-            cursor_line: self.editor.get_view_cursor().line.saturating_add(1),
+            cursor_line: self.editor.get_buffer_cursor().line.saturating_add(1),
             line_count: self.editor.get_buffer_line_count(),
         })
     }
