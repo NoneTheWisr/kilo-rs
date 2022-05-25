@@ -1,7 +1,7 @@
 use std::cmp;
-use std::iter::{once, repeat};
 
 use crate::core::{Buffer, Location, Span};
+use crate::highlighting::{LineHighlighting, ThemeSettings};
 use crate::view::{rendering::RenderedBuffer, ViewGeometry};
 
 use anyhow::Result;
@@ -58,19 +58,25 @@ impl Editor {
         self.view.height
     }
 
-    pub fn get_view_contents(&self) -> impl Iterator<Item = String> {
+    pub fn get_view_contents(&self) -> (Vec<String>, Vec<LineHighlighting>) {
         let ViewGeometry {
             line,
             col,
             width,
             height,
         } = self.view;
-        let filler = once("~").chain(repeat(" ")).take(width).collect();
-        self.rendered_buffer
-            .get_view(line, col, width, height)
-            .into_iter()
-            .chain(repeat(filler))
-            .take(height)
+        // TODO: Reimplement this
+        // let filler = once("~").chain(repeat(" ")).take(width).collect();
+        // self.rendered_buffer
+        //     .get_view(line, col, width, height)
+        //     .into_iter()
+        //     .chain(repeat(filler))
+        //     .take(height)
+        self.rendered_buffer.get_view(line, col, width, height)
+    }
+
+    pub fn theme(&self) -> &ThemeSettings {
+        self.rendered_buffer.theme()
     }
 
     pub fn get_file_name(&self) -> Option<&String> {
