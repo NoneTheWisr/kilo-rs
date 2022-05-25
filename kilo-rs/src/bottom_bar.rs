@@ -172,6 +172,9 @@ impl BottomBarComponent {
                     (KM::NONE, Char(c)) => {
                         input.push(c);
                     }
+                    (KM::SHIFT, Char(c)) => {
+                        input.push(c.to_ascii_uppercase());
+                    }
 
                     (KM::NONE, Backspace) => {
                         input.pop();
@@ -193,6 +196,10 @@ impl BottomBarComponent {
                 Find => match (modifiers, code) {
                     (KM::NONE, Char(c)) => {
                         input.push(c);
+                        queue.push(EditorControllerMessage::SetSearchPattern(input.clone()))
+                    }
+                    (KM::SHIFT, Char(c)) => {
+                        input.push(c.to_ascii_uppercase());
                         queue.push(EditorControllerMessage::SetSearchPattern(input.clone()))
                     }
 
