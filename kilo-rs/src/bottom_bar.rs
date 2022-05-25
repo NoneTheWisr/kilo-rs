@@ -191,6 +191,11 @@ impl BottomBarComponent {
                         queue.push(editor_message);
                     }
 
+                    (_, Esc) => {
+                        self.prompt_info = None;
+                        queue.push(Focus::TextArea);
+                    }
+
                     _ => {}
                 },
                 Find => match (modifiers, code) {
@@ -213,7 +218,7 @@ impl BottomBarComponent {
                         queue.push(EditorControllerMessage::FinishSearch);
                         queue.push(Focus::TextArea);
                     }
-                    (KM::NONE, Esc) => {
+                    (_, Esc) => {
                         self.prompt_info = None;
 
                         queue.push(EditorControllerMessage::CancelSearch);
