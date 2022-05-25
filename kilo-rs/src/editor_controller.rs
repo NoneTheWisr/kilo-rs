@@ -199,6 +199,7 @@ impl EditorControllerComponent {
             cursor: self.editor.get_view_cursor(),
             search_mode: self.editor.is_search_mode_active(),
             theme_settings: self.editor.theme().clone(),
+            search_match: self.editor.get_search_match(),
         })
     }
 }

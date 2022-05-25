@@ -15,6 +15,7 @@ impl Location {
     }
 }
 
+#[derive(Clone)]
 pub struct Span {
     pub start: Location,
     pub end: Location,

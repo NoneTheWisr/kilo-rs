@@ -7,12 +7,11 @@ use crossterm::cursor::MoveTo;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crossterm::queue;
 use crossterm::style::{
-    Attribute, Attributes, Color, ContentStyle, Print, ResetColor, SetAttributes,
-    SetBackgroundColor, StyledContent, Stylize,
+    Attribute, Color, ContentStyle, Print, ResetColor, SetBackgroundColor, StyledContent, Stylize,
 };
 use crossterm::terminal::{Clear, ClearType::UntilNewLine};
 
-use kilo_rs_backend::core::Location;
+use kilo_rs_backend::core::{Location, Span};
 use kilo_rs_backend::editor::Editor;
 use kilo_rs_backend::highlighting::{self, Highlight, LineHighlighting, ThemeSettings};
 
@@ -30,6 +29,7 @@ pub struct UpdateMessage {
     pub cursor: kilo_rs_backend::core::Location,
     pub search_mode: bool,
     pub theme_settings: ThemeSettings,
+    pub search_match: Option<Span>,
 }
 
 pub struct TextAreaComponent {
@@ -38,6 +38,7 @@ pub struct TextAreaComponent {
     cursor: Cursor,
     search_mode: bool,
     theme_settings: ThemeSettings,
+    search_match: Option<Span>,
 }
 
 impl TextAreaComponent {
@@ -48,6 +49,7 @@ impl TextAreaComponent {
         let cursor = Cursor::new(line as u16, col as u16);
         let search_mode = editor.is_search_mode_active();
         let theme_settings = editor.theme().clone();
+        let search_match = editor.get_search_match();
 
         Self {
             lines,
@@ -55,6 +57,7 @@ impl TextAreaComponent {
             cursor,
             search_mode,
             theme_settings,
+            search_match,
         }
     }
 
@@ -72,8 +75,18 @@ impl TextAreaComponent {
         }
 
         if self.search_mode {
-            queue!(writer, MoveToCursor(self.cursor))?;
-            queue!(writer, Print(self.get_char_at_cursor().negative()))?;
+            render_search_mode(
+                writer,
+                &self.cursor,
+                &self.search_match,
+                &self.lines,
+                self.theme_settings
+                    .find_highlight_foreground
+                    .unwrap_or(highlighting::Color::BLACK),
+                self.theme_settings
+                    .find_highlight
+                    .unwrap_or(highlighting::Color::WHITE),
+            )?;
         }
 
         Ok(Some(self.cursor))
@@ -88,6 +101,7 @@ impl TextAreaComponent {
         self.cursor = Cursor::new(line as u16, col as u16);
         self.search_mode = message.search_mode;
         self.theme_settings = message.theme_settings;
+        self.search_match = message.search_match;
 
         Ok(())
     }
@@ -127,13 +141,44 @@ impl TextAreaComponent {
         queue.push(message);
         Ok(())
     }
+}
 
-    fn get_char_at_cursor(&self) -> char {
-        self.lines[self.cursor.row as usize]
-            .chars()
-            .nth(self.cursor.col as usize)
-            .unwrap()
+fn render_search_mode(
+    writer: &mut impl Write,
+    cursor: &Cursor,
+    span: &Option<Span>,
+    lines: &Vec<String>,
+    fg: highlighting::Color,
+    bg: highlighting::Color,
+) -> Result<()> {
+    let row = cursor.row as usize;
+    let beg = cursor.col as usize;
+    let line = &lines[row];
+
+    queue!(writer, MoveToCursor(*cursor))?;
+    queue!(
+        writer,
+        Print(
+            &line[beg..beg + 1]
+                .with(convert_color(fg))
+                .on(convert_color(bg))
+        )
+    )?;
+
+    if let Some(span) = span {
+        assert_eq!(span.start.line, span.end.line);
+        let end = span.end.col;
+
+        queue!(
+            writer,
+            Print(
+                &line[beg + 1..end]
+                    .with(convert_color(fg))
+                    .on(convert_color(bg))
+            )
+        )?;
     }
+    Ok(())
 }
 
 fn render_styled_line(

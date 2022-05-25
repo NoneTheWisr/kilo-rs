@@ -19,6 +19,7 @@ struct SearchState {
     initial_view: ViewGeometry,
     pattern: Option<String>,
     forward: bool,
+    span: Option<Span>,
 }
 
 impl Editor {
@@ -317,10 +318,18 @@ impl Editor {
             initial_view: self.view.clone(),
             pattern: None,
             forward: true,
+            span: None,
         });
     }
 
     pub fn set_search_pattern(&mut self, pattern: &str) {
+        if pattern.is_empty() {
+            let state = self.search_state.as_mut().unwrap();
+            state.pattern = None;
+            state.span = None;
+            return;
+        }
+
         self.search_state.as_mut().unwrap().pattern = Some(String::from(pattern));
 
         let state = self.search_state.as_ref().unwrap();
@@ -328,8 +337,9 @@ impl Editor {
         let forward = state.forward;
         let pattern = state.pattern.as_ref().unwrap();
 
-        if let Some(Span { start, .. }) = self.buffer.find(pattern, forward, cursor) {
-            self.move_cursor_to_location(start);
+        if let Some(span) = self.buffer.find(pattern, forward, cursor) {
+            self.move_cursor_to_location(span.start);
+            self.search_state.as_mut().unwrap().span = Some(span);
         }
     }
 
@@ -342,8 +352,16 @@ impl Editor {
         let forward = state.forward;
         let pattern = state.pattern.as_ref().unwrap();
 
-        if let Some(Span { start, .. }) = self.buffer.find(pattern, forward, self.cursor) {
-            self.move_cursor_to_location(start);
+        if let Some(span) = self.buffer.find(pattern, forward, self.cursor) {
+            self.move_cursor_to_location(span.start);
+            self.search_state.as_mut().unwrap().span = Some(span);
+        }
+    }
+
+    pub fn get_search_match(&self) -> Option<Span> {
+        match &self.search_state {
+            Some(state) => state.span.clone(),
+            None => None,
         }
     }
 
