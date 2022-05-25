@@ -121,7 +121,7 @@ impl Buffer {
     pub fn find(&self, pattern: &str, forward: bool, start: Location) -> Option<Span> {
         if forward {
             let ahead = self.lines[start.line].get(start.col + 1..);
-            if let Some(col) = ahead.map_or(None, |ahead| ahead.find(pattern)) {
+            if let Some(col) = ahead.and_then(|ahead| ahead.find(pattern)) {
                 return Some(Span {
                     start: Location::new(start.line, start.col + 1 + col),
                     end: Location::new(start.line, start.col + 1 + col + pattern.len()),
@@ -129,7 +129,7 @@ impl Buffer {
             }
         } else {
             let ahead = self.lines[start.line].get(..start.col);
-            if let Some(col) = ahead.map_or(None, |ahead| ahead.rfind(pattern)) {
+            if let Some(col) = ahead.and_then(|ahead| ahead.rfind(pattern)) {
                 return Some(Span {
                     start: Location::new(start.line, col),
                     end: Location::new(start.line, col + pattern.len()),
@@ -173,7 +173,7 @@ impl Buffer {
 
         if forward {
             let behind = self.lines[start.line].get(..start.col);
-            if let Some(col) = behind.map_or(None, |ahead| ahead.find(pattern)) {
+            if let Some(col) = behind.and_then(|ahead| ahead.find(pattern)) {
                 return Some(Span {
                     start: Location::new(start.line, col),
                     end: Location::new(start.line, col + pattern.len()),
@@ -181,7 +181,7 @@ impl Buffer {
             }
         } else {
             let behind = self.lines[start.line].get(start.col + 1..);
-            if let Some(col) = behind.map_or(None, |ahead| ahead.rfind(pattern)) {
+            if let Some(col) = behind.and_then(|ahead| ahead.rfind(pattern)) {
                 return Some(Span {
                     start: Location::new(start.line, start.col + 1 + col),
                     end: Location::new(start.line, start.col + 1 + col + pattern.len()),

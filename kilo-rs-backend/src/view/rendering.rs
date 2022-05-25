@@ -15,10 +15,9 @@ pub struct RenderedBuffer {
 
 impl From<&Buffer> for RenderedBuffer {
     fn from(buffer: &Buffer) -> Self {
-        let extension = match buffer.file_path() {
-            Some(path) => path.rsplit_once('.').map(|split| split.1),
-            None => None,
-        };
+        let extension = buffer
+            .file_path()
+            .and_then(|path| path.rsplit_once('.').map(|split| split.1));
 
         let mut highlighter = SyntaxHighlighter::simple(extension);
         let lines: Vec<_> = buffer.lines().map(|line| render_line(line)).collect();

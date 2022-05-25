@@ -28,11 +28,9 @@ impl SyntaxHighlighter {
         let highlighter = Highlighter::new(&theme);
         let highlighter: Highlighter<'static> = unsafe { std::mem::transmute(highlighter) };
 
-        let syntax_ref = match extension {
-            Some(extension) => syntax_set.find_syntax_by_extension(extension),
-            None => None,
-        };
-        let syntax_ref = syntax_ref.unwrap_or(syntax_set.find_syntax_plain_text());
+        let syntax_ref = extension
+            .and_then(|ext| syntax_set.find_syntax_by_extension(ext))
+            .unwrap_or(syntax_set.find_syntax_plain_text());
 
         let parse_state = ParseState::new(syntax_ref);
         let highlight_state = HighlightState::new(&highlighter, ScopeStack::new());
