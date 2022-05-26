@@ -21,6 +21,15 @@ pub struct Span {
     pub end: Location,
 }
 
+impl Span {
+    fn from_str(line: usize, beg: usize, str: &str) -> Self {
+        Self {
+            start: Location::new(line, beg),
+            end: Location::new(line, beg + str.len()),
+        }
+    }
+}
+
 pub struct Buffer {
     file_path: Option<String>,
     lines: Vec<String>,
@@ -127,19 +136,14 @@ impl Buffer {
         let (beg, end) = if forward { line_split.1 } else { line_split.0 };
         let ahead = &self.lines[start.line][beg..end];
         if let Some(col) = find(&ahead, pattern) {
-            return Some(Span {
-                start: Location::new(start.line, beg + col),
-                end: Location::new(start.line, beg + col + pattern.len()),
-            });
+            return Some(Span::from_str(start.line, beg + col, pattern));
         }
 
         // All the other lines wrapped around
-        let line_matches = self.lines.iter().enumerate().map(|(num, line)| {
-            find(line, pattern).map(|col| Span {
-                start: Location::new(num, col),
-                end: Location::new(num, col + pattern.len()),
-            })
-        });
+        let line_matches =
+            self.lines.iter().enumerate().map(|(num, line)| {
+                find(line, pattern).map(|col| Span::from_str(num, col, pattern))
+            });
 
         let before = line_matches.clone().take(start.line);
         let after = line_matches.skip(start.line + 1);
@@ -155,10 +159,7 @@ impl Buffer {
         let (beg, end) = if forward { line_split.0 } else { line_split.1 };
         let behind = &self.lines[start.line][beg..end];
         if let Some(col) = find(&behind, pattern) {
-            return Some(Span {
-                start: Location::new(start.line, beg + col),
-                end: Location::new(start.line, beg + col + pattern.len()),
-            });
+            return Some(Span::from_str(start.line, beg + col, pattern));
         }
 
         None
