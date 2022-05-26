@@ -119,74 +119,46 @@ impl Buffer {
     }
 
     pub fn find(&self, pattern: &str, forward: bool, start: Location) -> Option<Span> {
-        if forward {
-            let ahead = self.lines[start.line].get(start.col + 1..);
-            if let Some(col) = ahead.and_then(|ahead| ahead.find(pattern)) {
-                return Some(Span {
-                    start: Location::new(start.line, start.col + 1 + col),
-                    end: Location::new(start.line, start.col + 1 + col + pattern.len()),
-                });
-            }
-        } else {
-            let ahead = self.lines[start.line].get(..start.col);
-            if let Some(col) = ahead.and_then(|ahead| ahead.rfind(pattern)) {
-                return Some(Span {
-                    start: Location::new(start.line, col),
-                    end: Location::new(start.line, col + pattern.len()),
-                });
-            }
+        let line = &self.lines[start.line];
+        let line_split = ((0, start.col), (start.col + 1, line.len()));
+        let find = if forward { str::find } else { str::rfind };
+
+        // Part of the first line after the cursor
+        let (beg, end) = if forward { line_split.1 } else { line_split.0 };
+        let ahead = &self.lines[start.line][beg..end];
+        if let Some(col) = find(&ahead, pattern) {
+            return Some(Span {
+                start: Location::new(start.line, beg + col),
+                end: Location::new(start.line, beg + col + pattern.len()),
+            });
         }
 
-        let result = if forward {
-            let mut lines = self
-                .lines
-                .iter()
-                .enumerate()
-                .cycle()
-                .skip(start.line + 1)
-                .take(self.lines.len().saturating_sub(1));
-            lines.find_map(|(num, line)| {
-                line.find(pattern).map(|col| Span {
-                    start: Location::new(num, col),
-                    end: Location::new(num, col + pattern.len()),
-                })
+        // All the other lines wrapped around
+        let line_matches = self.lines.iter().enumerate().map(|(num, line)| {
+            find(line, pattern).map(|col| Span {
+                start: Location::new(num, col),
+                end: Location::new(num, col + pattern.len()),
             })
-        } else {
-            let mut lines = self
-                .lines
-                .iter()
-                .enumerate()
-                .rev()
-                .cycle()
-                .skip(self.lines.len() - start.line)
-                .take(self.lines.len().saturating_sub(1));
-            lines.find_map(|(num, line)| {
-                line.rfind(pattern).map(|col| Span {
-                    start: Location::new(num, col),
-                    end: Location::new(num, col + pattern.len()),
-                })
-            })
-        };
-        if result.is_some() {
-            return result;
+        });
+
+        let before = line_matches.clone().take(start.line);
+        let after = line_matches.skip(start.line + 1);
+
+        if let Some(span) = match forward {
+            true => after.chain(before).find(Option::is_some),
+            false => before.rev().chain(after.rev()).find(Option::is_some),
+        } {
+            return span;
         }
 
-        if forward {
-            let behind = self.lines[start.line].get(..start.col);
-            if let Some(col) = behind.and_then(|ahead| ahead.find(pattern)) {
-                return Some(Span {
-                    start: Location::new(start.line, col),
-                    end: Location::new(start.line, col + pattern.len()),
-                });
-            }
-        } else {
-            let behind = self.lines[start.line].get(start.col + 1..);
-            if let Some(col) = behind.and_then(|ahead| ahead.rfind(pattern)) {
-                return Some(Span {
-                    start: Location::new(start.line, start.col + 1 + col),
-                    end: Location::new(start.line, start.col + 1 + col + pattern.len()),
-                });
-            }
+        // Wrap-around part of the first line
+        let (beg, end) = if forward { line_split.0 } else { line_split.1 };
+        let behind = &self.lines[start.line][beg..end];
+        if let Some(col) = find(&behind, pattern) {
+            return Some(Span {
+                start: Location::new(start.line, beg + col),
+                end: Location::new(start.line, beg + col + pattern.len()),
+            });
         }
 
         None
