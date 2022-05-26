@@ -350,7 +350,10 @@ impl Editor {
     pub fn next_search_result(&mut self) {
         let state = self.search_state.as_ref().unwrap();
         let forward = state.forward;
-        let pattern = state.pattern.as_ref().unwrap();
+        let pattern = match state.pattern.as_ref() {
+            Some(pattern) => pattern,
+            None => return,
+        };
 
         if let Some(span) = self.buffer.find(pattern, forward, self.cursor) {
             self.move_cursor_to_location(span.start);
